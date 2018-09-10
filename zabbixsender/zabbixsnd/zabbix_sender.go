@@ -3,7 +3,6 @@ package zabbixsnd
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"time"
@@ -24,7 +23,7 @@ type Packet struct {
 	Clock   int64     `json:"clock"`
 }
 
-//NewPacket Packet class cunstructor
+//NewPacket creates nwe packet
 func NewPacket(data []*Metric, clock ...int64) *Packet {
 	p := &Packet{Request: `sender data`, Data: data}
 	// use current time, if `clock` is not specified
@@ -34,7 +33,7 @@ func NewPacket(data []*Metric, clock ...int64) *Packet {
 	return p
 }
 
-// DataLen Packet class method, return 8 bytes with packet length in little endian order
+// DataLen Packet return 8 bytes with packet length in little endian order
 func (p *Packet) DataLen() ([]byte, error) {
 	dataLen := make([]byte, 8)
 	JSONData, err := json.Marshal(p)
@@ -45,30 +44,27 @@ func (p *Packet) DataLen() ([]byte, error) {
 	return dataLen, nil
 }
 
+// Sender sends data to zabbix
+// Read more: https://www.zabbix.com/documentation/3.4/manual/config/items/itemtypes/trapper
 type Sender struct {
-	Host string
-	Port int
+	addr *net.TCPAddr
 }
 
-// Method Sender class, read data from connection
-func (s *Sender) read(conn *net.TCPConn) ([]byte, error) {
-	res, err := ioutil.ReadAll(conn)
+// New creates new sender
+func New(addr string) (*Sender, error) {
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 
-	return res, nil
+	return &Sender{
+		addr: tcpAddr,
+	}, nil
 }
 
-//Send method Sender class, send packet to zabbix
+// Send method Sender class, send packet to zabbix
 func (s *Sender) Send(packet *Packet) ([]byte, error) {
-	// Open connection to zabbix host
-	iaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", s.Host, s.Port))
-	if err != nil {
-		return nil, err
-	}
-
-	conn, err := net.DialTCP("tcp", nil, iaddr)
+	conn, err := net.DialTCP("tcp", nil, s.addr)
 	if err != nil {
 		return nil, err
 	}
@@ -83,18 +79,18 @@ func (s *Sender) Send(packet *Packet) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Fill buffer
-	buffer := append(Header, datalen...)
 
+	buffer := append(Header, datalen...)
 	buffer = append(buffer, dataPacket...)
 
-	// Sent packet to zabbix
 	_, err = conn.Write(buffer)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := s.read(conn)
+	//TODO: actually parse the protocol
+	//TODO: does read all work?
+	res, err := ioutil.ReadAll(conn)
 	if err != nil {
 		return nil, err
 	}

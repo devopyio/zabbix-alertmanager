@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
 	zabbix "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/zabbixclient"
 	"github.com/pkg/errors"
@@ -14,99 +12,70 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-const (
-	rulePollingInterval = 1 * time.Hour
-)
-
 type HostConfig struct {
-	Name                    string            `yaml:"name"`
-	Selector                map[string]string `yaml:"selector"`
-	HostGroups              []string          `yaml:"hostGroups"`
-	Tag                     string            `yaml:"tag"`
-	DeploymentStatus        string            `yaml:"deploymentStatus"`
-	ItemDefaultApplication  string            `yaml:"itemDefaultApplication"`
-	ItemDefaultHistory      string            `yaml:"itemDefaultHistory"`
-	ItemDefaultTrends       string            `yaml:"itemDefaultTrends"`
-	ItemDefaultTrapperHosts string            `yaml:"itemDefaultTrapperHosts"`
-}
-
-type ProvisionerConfig struct {
-	URL       string       `yaml:"APIUrl"`
-	User      string       `yaml:"APIUser"`
-	Password  string       `yaml:"APIPassword"`
-	KeyPrefix string       `yaml:"KeyPrefix"`
-	Hosts     []HostConfig `yaml:"Hosts"`
+	Name                    string   `yaml:"name"`
+	HostGroups              []string `yaml:"hostGroups"`
+	Tag                     string   `yaml:"tag"`
+	DeploymentStatus        string   `yaml:"deploymentStatus"`
+	ItemDefaultApplication  string   `yaml:"itemDefaultApplication"`
+	ItemDefaultHistory      string   `yaml:"itemDefaultHistory"`
+	ItemDefaultTrends       string   `yaml:"itemDefaultTrends"`
+	ItemDefaultTrapperHosts string   `yaml:"itemDefaultTrapperHosts"`
 }
 
 type Provisioner struct {
-	api       *zabbix.API
-	keyPrefix string
-	hosts     []HostConfig
+	api                 *zabbix.API
+	keyPrefix           string
+	prometheusAlertPath string
+	hosts               []HostConfig
 	*CustomZabbix
 }
 
-func New(cfg *ProvisionerConfig) (*Provisioner, error) {
+func New(prometheusAlertPath, keyPrefix, url, user, password string, hosts []HostConfig) (*Provisioner, error) {
 	transport := http.DefaultTransport
 
-	api := zabbix.NewAPI(cfg.URL)
+	api := zabbix.NewAPI(url)
 	api.SetClient(&http.Client{
 		Transport: transport,
 	})
 
-	_, err := api.Login(cfg.User, cfg.Password)
+	_, err := api.Login(user, password)
 	if err != nil {
 		return nil, errors.Wrap(err, "error while login to zabbix api")
 	}
 
 	return &Provisioner{
-		api:       api,
-		keyPrefix: cfg.KeyPrefix,
-		hosts:     cfg.Hosts,
+		api:                 api,
+		keyPrefix:           keyPrefix,
+		prometheusAlertPath: prometheusAlertPath,
+		hosts:               hosts,
 	}, nil
 }
 
-func LoadFromFile(filename string) (cfg *ProvisionerConfig, err error) {
+func LoadHostConfigFromFile(filename string) (cfg []HostConfig, err error) {
 	configFile, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't open the config file: %s")
 	}
 
-	// Default values
-	config := ProvisionerConfig{
-		URL:       "https://127.0.0.1/zabbix/api_jsonrpc.php",
-		User:      "Admin",
-		Password:  "zabbix",
-		KeyPrefix: "prometheus",
-		Hosts:     []HostConfig{},
-	}
+	hosts := []HostConfig{}
 
-	err = yaml.Unmarshal(configFile, &config)
+	err = yaml.Unmarshal(configFile, &hosts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't read the config file: %s")
 	}
 
-	// If Environment variables are set for zabbix user and password, use those instead
-	user, ok := os.LookupEnv("ZABBIX_API_USER")
-	if ok {
-		config.User = user
-	}
-
-	password, ok := os.LookupEnv("ZABBIX_api_PASSWORD")
-	if ok {
-		config.Password = password
-	}
-
-	return &config, nil
+	return cfg, nil
 }
 
-func (p *Provisioner) Run(filename string) error {
+func (p *Provisioner) Run() error {
 	p.CustomZabbix = &CustomZabbix{
 		Hosts:      map[string]*CustomHost{},
 		HostGroups: map[string]*CustomHostGroup{},
 	}
 
-	if err := p.LoadRulesFromPrometheus(filename); err != nil {
-		return errors.Wrapf(err, "error loading prometheus rules, file: %s", filename)
+	if err := p.LoadRulesFromPrometheus(p.prometheusAlertPath); err != nil {
+		return errors.Wrapf(err, "error loading prometheus rules, file: %s", p.prometheusAlertPath)
 	}
 
 	if err := p.LoadDataFromZabbix(); err != nil {
@@ -122,7 +91,7 @@ func (p *Provisioner) Run(filename string) error {
 
 // Create hosts structures and populate them from Prometheus rules
 func (p *Provisioner) LoadRulesFromPrometheus(filename string) error {
-	rules, err := GetRulesFromFile(filename)
+	rules, err := LoadPrometheusRulesFromFile(filename)
 	if err != nil {
 		return errors.Wrap(err, "error loading rules")
 	}
@@ -455,7 +424,7 @@ func (p *Provisioner) ApplyChanges() error {
 	}
 
 	for _, host := range p.Hosts {
-		log.Info("Updating host:", host.Name)
+		log.Debugf("Updating host, hostName: %s", host.Name)
 
 		applicationsByState := host.GetApplicationsByState()
 		if len(applicationsByState[StateOld]) != 0 {

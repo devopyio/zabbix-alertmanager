@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	provisioner "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner"
+	"github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/provisioner"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsnd"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsvc"
 	"github.com/prometheus/common/version"
@@ -29,8 +29,12 @@ func main() {
 	defaultHost := send.Arg("default-host", "default host-name").Default("prometheus").String()
 
 	prov := app.Command("prov", "Start zabbix provisioner.")
-	provConfig := prov.Arg("config", "Zabbix provisioner config file path.").Required().String()
-	provAlerts := prov.Arg("alerts", "Path to the prometheus alerts file.").Required().String()
+	provConfig := prov.Arg("config", "Path to provisioner hosts config file.").Required().String()
+	provAlerts := prov.Arg("alerts", "Path to the prometheus alerts files.").Required().String()
+	provURL := prov.Arg("url", "Zabbix json rpc url.").Default("https://127.0.0.1/zabbix/api_jsonrpc.php").Required().Envar("ZABBIX_URL").String()
+	provUser := prov.Arg("user", "Zabbix json rpc user.").Required().Envar("ZABBIX_USER").String()
+	provPassword := prov.Arg("password", "Zabbix json rpc password.").Required().Envar("ZABBIX_PASSWORD").String()
+	provKeyPrefix := prov.Arg("key-prefix", "Prefix to add to the trapper item key.").Default("prometheus").Required().String()
 
 	logLevel := app.Flag("log.level", "Log level.").
 		Default("info").Enum("error", "warn", "info", "debug")
@@ -78,7 +82,20 @@ func main() {
 		}
 
 	case prov.FullCommand():
-		provisioner.Run(*provConfig, *provAlerts)
+		cfg, err := provisioner.LoadHostConfigFromFile(*provConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Infof("loaded hosts configuration from '%s'", *provConfig)
+
+		prov, err := provisioner.New(*provAlerts, *provKeyPrefix, *provURL, *provUser, *provPassword, cfg)
+		if err != nil {
+			log.Fatalf("error failed to create provisioner: %s", err)
+		}
+
+		if err := prov.Run(); err != nil {
+			log.Fatalf("error provisioning zabbix items: %s", err)
+		}
 	}
 }
 
@@ -87,7 +104,7 @@ func interrupt(logger log.Logger, cancel <-chan struct{}) error {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	select {
 	case s := <-c:
-		log.Info("msg", "caught signal. Exiting.", "signal", s)
+		log.Info("caught signal. Exiting.", "signal", s)
 		return nil
 	case <-cancel:
 		return errors.New("canceled")

@@ -4,128 +4,99 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
-	zabbix "github.com/devopyio/zabsnd/zabbixprovisioner/zabbixclient"
+	zabbix "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/zabbixclient"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
 
-const (
-	rulePollingInterval = 3600
-)
+type HostConfig struct {
+	Name                    string   `yaml:"name"`
+	HostGroups              []string `yaml:"hostGroups"`
+	Tag                     string   `yaml:"tag"`
+	DeploymentStatus        string   `yaml:"deploymentStatus"`
+	ItemDefaultApplication  string   `yaml:"itemDefaultApplication"`
+	ItemDefaultHistory      string   `yaml:"itemDefaultHistory"`
+	ItemDefaultTrends       string   `yaml:"itemDefaultTrends"`
+	ItemDefaultTrapperHosts string   `yaml:"itemDefaultTrapperHosts"`
+}
 
 type Provisioner struct {
-	Api    *zabbix.API
-	Config ProvisionerConfig
+	api                 *zabbix.API
+	keyPrefix           string
+	prometheusAlertPath string
+	hosts               []HostConfig
 	*CustomZabbix
 }
 
-type ProvisionerConfig struct {
-	ZabbixApiUrl      string       `yaml:"zabbixApiUrl"`
-	ZabbixApiUser     string       `yaml:"zabbixApiUser"`
-	ZabbixApiPassword string       `yaml:"zabbixApiPassword"`
-	ZabbixKeyPrefix   string       `yaml:"zabbixKeyPrefix"`
-	ZabbixHosts       []HostConfig `yaml:"zabbixHosts"`
-}
-
-type HostConfig struct {
-	Name                    string            `yaml:"name"`
-	Selector                map[string]string `yaml:"selector"`
-	HostGroups              []string          `yaml:"hostGroups"`
-	Tag                     string            `yaml:"tag"`
-	DeploymentStatus        string            `yaml:"deploymentStatus"`
-	ItemDefaultApplication  string            `yaml:"itemDefaultApplication"`
-	ItemDefaultHistory      string            `yaml:"itemDefaultHistory"`
-	ItemDefaultTrends       string            `yaml:"itemDefaultTrends"`
-	ItemDefaultTrapperHosts string            `yaml:"itemDefaultTrapperHosts"`
-}
-
-func New(cfg *ProvisionerConfig) *Provisioner {
+func New(prometheusAlertPath, keyPrefix, url, user, password string, hosts []HostConfig) (*Provisioner, error) {
 	transport := http.DefaultTransport
 
-	api := zabbix.NewAPI(cfg.ZabbixApiUrl)
+	api := zabbix.NewAPI(url)
 	api.SetClient(&http.Client{
 		Transport: transport,
 	})
 
-	auth, err := api.Login(cfg.ZabbixApiUser, cfg.ZabbixApiPassword)
+	_, err := api.Login(user, password)
 	if err != nil {
-		log.Fatalln("error while login to Zabbix:", err)
+		return nil, errors.Wrap(err, "error while login to zabbix api")
 	}
-	log.Info(auth)
 
 	return &Provisioner{
-		Api:    api,
-		Config: *cfg,
-	}
-
+		api:                 api,
+		keyPrefix:           keyPrefix,
+		prometheusAlertPath: prometheusAlertPath,
+		hosts:               hosts,
+	}, nil
 }
 
-func LoadFromFile(filename string) (cfg *ProvisionerConfig, err error) {
+func LoadHostConfigFromFile(filename string) (cfg []HostConfig, err error) {
 	configFile, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't open the config file: %s")
+		return nil, errors.Wrapf(err, "can't open the config file: %s", filename)
 	}
 
-	// Default values
-	config := ProvisionerConfig{
-		ZabbixApiUrl:      "https://127.0.0.1/zabbix/api_jsonrpc.php",
-		ZabbixApiUser:     "Admin",
-		ZabbixApiPassword: "zabbix",
-		ZabbixKeyPrefix:   "prometheus",
-		ZabbixHosts:       []HostConfig{},
-	}
+	hosts := []HostConfig{}
 
-	err = yaml.Unmarshal(configFile, &config)
+	err = yaml.Unmarshal(configFile, &hosts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't read the config file: %s")
+		return nil, errors.Wrapf(err, "can't read the config file: %s", filename)
 	}
 
-	log.Info("configuration loaded")
-
-	// If Environment variables are set for zabbix user and password, use those instead
-	zabbixApiUser, ok := os.LookupEnv("ZABBIX_API_USER")
-	if ok {
-		config.ZabbixApiUser = zabbixApiUser
-	}
-
-	zabbixApiPassword, ok := os.LookupEnv("ZABBIX_API_PASSWORD")
-	if ok {
-		config.ZabbixApiPassword = zabbixApiPassword
-	}
-
-	return &config, nil
+	return cfg, nil
 }
 
-func (p *Provisioner) Start(filename string) {
-	for {
-		p.CustomZabbix = &CustomZabbix{
-			Hosts:      map[string]*CustomHost{},
-			HostGroups: map[string]*CustomHostGroup{},
-		}
-
-		p.FillFromPrometheus(filename)
-		p.FillFromZabbix()
-		p.ApplyChanges()
-
-		time.Sleep(rulePollingInterval * time.Second)
+func (p *Provisioner) Run() error {
+	p.CustomZabbix = &CustomZabbix{
+		Hosts:      map[string]*CustomHost{},
+		HostGroups: map[string]*CustomHostGroup{},
 	}
+
+	if err := p.LoadRulesFromPrometheus(p.prometheusAlertPath); err != nil {
+		return errors.Wrapf(err, "error loading prometheus rules, file: %s", p.prometheusAlertPath)
+	}
+
+	if err := p.LoadDataFromZabbix(); err != nil {
+		return errors.Wrap(err, "error loading zabbix rules")
+	}
+
+	if err := p.ApplyChanges(); err != nil {
+		return errors.Wrap(err, "error applying changes")
+	}
+
+	return nil
 }
 
 // Create hosts structures and populate them from Prometheus rules
-func (p *Provisioner) FillFromPrometheus(filename string) error {
-	rules, err := GetRulesFromFile(filename)
+func (p *Provisioner) LoadRulesFromPrometheus(filename string) error {
+	rules, err := LoadPrometheusRulesFromFile(filename)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error loading rules")
 	}
 
-	for _, hostConfig := range p.Config.ZabbixHosts {
-
-		// Create an internal host object
+	for _, hostConfig := range p.hosts {
 		newHost := &CustomHost{
 			State: StateNew,
 			Host: zabbix.Host{
@@ -155,7 +126,6 @@ func (p *Provisioner) FillFromPrometheus(filename string) error {
 			Triggers:     map[string]*CustomTrigger{},
 		}
 
-		// Create host groups from the configuration file and link them to this host
 		for _, hostGroupName := range hostConfig.HostGroups {
 			p.AddHostGroup(&CustomHostGroup{
 				State: StateNew,
@@ -169,8 +139,7 @@ func (p *Provisioner) FillFromPrometheus(filename string) error {
 
 		// Parse Prometheus rules and create corresponding items/triggers and applications for this host
 		for _, rule := range rules {
-
-			key := fmt.Sprintf("prometheus.%s", strings.ToLower(rule.Name))
+			key := fmt.Sprintf("%s.%s", strings.ToLower(p.keyPrefix), strings.ToLower(rule.Name))
 
 			newItem := &CustomItem{
 				State: StateNew,
@@ -222,7 +191,7 @@ func (p *Provisioner) FillFromPrometheus(filename string) error {
 					}
 
 					// If a specific description for this trigger is not present use the default prometheus description
-					// Note that trigger "description" are called "comments" in the Zabbix API
+					// Note that trigger "description" are called "comments" in the Zabbix api
 					if _, ok := rule.Annotations["zabbix_trigger_description"]; !ok {
 						newTrigger.Comments = v
 					}
@@ -235,7 +204,7 @@ func (p *Provisioner) FillFromPrometheus(filename string) error {
 				case "zabbix_trapper_hosts":
 					newItem.TrapperHosts = v
 				case "summary":
-					// Note that trigger "name" is called "description" in the Zabbix API
+					// Note that trigger "name" is called "description" in the Zabbix api
 					if _, ok := rule.Annotations["zabbix_trigger_name"]; !ok {
 						newTrigger.Description = v
 					}
@@ -261,10 +230,10 @@ func (p *Provisioner) FillFromPrometheus(filename string) error {
 				newItem.Applications[hostConfig.ItemDefaultApplication] = struct{}{}
 			}
 
-			log.Debugf("Item from Prometheus: %+v", newItem)
+			log.Debugf("Loading item from Prometheus: %+v", newItem)
 			newHost.AddItem(newItem)
 
-			log.Debugf("Trigger from Prometheus: %+v", newTrigger)
+			log.Debugf("Loading trigger from Prometheus: %+v", newTrigger)
 			newHost.AddTrigger(newTrigger)
 
 			// Add the special "No Data" trigger if requested
@@ -287,22 +256,22 @@ func (p *Provisioner) FillFromPrometheus(filename string) error {
 }
 
 // Update created hosts with the current state in Zabbix
-func (p *Provisioner) FillFromZabbix() error {
-	hostNames := make([]string, len(p.Config.ZabbixHosts))
+func (p *Provisioner) LoadDataFromZabbix() error {
+	hostNames := make([]string, len(p.hosts))
 	hostGroupNames := []string{}
-	for i, _ := range p.Config.ZabbixHosts {
-		hostNames[i] = p.Config.ZabbixHosts[i].Name
-		hostGroupNames = append(hostGroupNames, p.Config.ZabbixHosts[i].HostGroups...)
+	for i, _ := range p.hosts {
+		hostNames[i] = p.hosts[i].Name
+		hostGroupNames = append(hostGroupNames, p.hosts[i].HostGroups...)
 	}
 
-	zabbixHostGroups, err := p.Api.HostGroupsGet(zabbix.Params{
+	zabbixHostGroups, err := p.api.HostGroupsGet(zabbix.Params{
 		"output": "extend",
 		"filter": map[string][]string{
 			"name": hostGroupNames,
 		},
 	})
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error getting hostgroups: %v", hostGroupNames)
 	}
 
 	for _, zabbixHostGroup := range zabbixHostGroups {
@@ -312,7 +281,7 @@ func (p *Provisioner) FillFromZabbix() error {
 		})
 	}
 
-	zabbixHosts, err := p.Api.HostsGet(zabbix.Params{
+	zabbixHosts, err := p.api.HostsGet(zabbix.Params{
 		"output": "extend",
 		"selectInventory": []string{
 			"tag",
@@ -323,16 +292,16 @@ func (p *Provisioner) FillFromZabbix() error {
 		},
 	})
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error getting hosts: %v", hostNames)
 	}
 
 	for _, zabbixHost := range zabbixHosts {
-		zabbixHostGroups, err := p.Api.HostGroupsGet(zabbix.Params{
+		zabbixHostGroups, err := p.api.HostGroupsGet(zabbix.Params{
 			"output":  "extend",
 			"hostids": zabbixHost.HostId,
 		})
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error getting hostgroup, hostid: %v", zabbixHost.HostId)
 		}
 
 		hostGroups := make(map[string]struct{}, len(zabbixHostGroups))
@@ -340,7 +309,7 @@ func (p *Provisioner) FillFromZabbix() error {
 			hostGroups[zabbixHostGroup.Name] = struct{}{}
 		}
 
-		// Remove hostid because the Zabbix API add it automatically and it breaks the comparison between new/old hosts
+		// Remove hostid because the Zabbix api add it automatically and it breaks the comparison between new/old hosts
 		delete(zabbixHost.Inventory, "hostid")
 
 		oldHost := p.AddHost(&CustomHost{
@@ -351,14 +320,14 @@ func (p *Provisioner) FillFromZabbix() error {
 			Applications: map[string]*CustomApplication{},
 			Triggers:     map[string]*CustomTrigger{},
 		})
-		log.Debugf("Host from Zabbix: %+v", oldHost)
+		log.Debugf("Load host from Zabbix: %+v", oldHost)
 
-		zabbixApplications, err := p.Api.ApplicationsGet(zabbix.Params{
+		zabbixApplications, err := p.api.ApplicationsGet(zabbix.Params{
 			"output":  "extend",
 			"hostids": oldHost.HostId,
 		})
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error getting application, hostid: %v", oldHost.HostId)
 		}
 
 		for _, zabbixApplication := range zabbixApplications {
@@ -368,27 +337,26 @@ func (p *Provisioner) FillFromZabbix() error {
 			})
 		}
 
-		zabbixItems, err := p.Api.ItemsGet(zabbix.Params{
+		zabbixItems, err := p.api.ItemsGet(zabbix.Params{
 			"output":  "extend",
 			"hostids": oldHost.Host.HostId,
 		})
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error getting item, hostid: %v", oldHost.Host.HostId)
 		}
 
 		for _, zabbixItem := range zabbixItems {
-
 			newItem := &CustomItem{
 				State: StateOld,
 				Item:  zabbixItem,
 			}
 
-			zabbixApplications, err := p.Api.ApplicationsGet(zabbix.Params{
+			zabbixApplications, err := p.api.ApplicationsGet(zabbix.Params{
 				"output":  "extend",
 				"itemids": zabbixItem.ItemId,
 			})
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "error getting item, itemid: %v", oldHost.Host.HostId)
 			}
 
 			newItem.Applications = make(map[string]struct{}, len(zabbixApplications))
@@ -396,17 +364,17 @@ func (p *Provisioner) FillFromZabbix() error {
 				newItem.Applications[zabbixApplication.Name] = struct{}{}
 			}
 
-			log.Debugf("Item from Zabbix: %+v", newItem)
+			log.Debugf("Loading item from Zabbix: %+v", newItem)
 			oldHost.AddItem(newItem)
 		}
 
-		zabbixTriggers, err := p.Api.TriggersGet(zabbix.Params{
+		zabbixTriggers, err := p.api.TriggersGet(zabbix.Params{
 			"output":           "extend",
 			"hostids":          oldHost.Host.HostId,
 			"expandExpression": true,
 		})
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error getting zabbix triggers, hostids: %v", oldHost.Host.HostId)
 		}
 
 		for _, zabbixTrigger := range zabbixTriggers {
@@ -415,7 +383,7 @@ func (p *Provisioner) FillFromZabbix() error {
 				Trigger: zabbixTrigger,
 			}
 
-			log.Debugf("Triggers from Zabbix: %+v", newTrigger)
+			log.Debugf("Loading trigger from Zabbix: %+v", newTrigger)
 			oldHost.AddTrigger(newTrigger)
 		}
 	}
@@ -426,7 +394,7 @@ func (p *Provisioner) ApplyChanges() error {
 	hostGroupsByState := p.GetHostGroupsByState()
 	if len(hostGroupsByState[StateNew]) != 0 {
 		log.Debugf("Creating HostGroups: %+v\n", hostGroupsByState[StateNew])
-		err := p.Api.HostGroupsCreate(hostGroupsByState[StateNew])
+		err := p.api.HostGroupsCreate(hostGroupsByState[StateNew])
 		if err != nil {
 			return errors.Wrap(err, "Failed in creating hostgroups")
 		}
@@ -438,7 +406,7 @@ func (p *Provisioner) ApplyChanges() error {
 	hostsByState := p.GetHostsByState()
 	if len(hostsByState[StateNew]) != 0 {
 		log.Debugf("Creating Hosts: %+v\n", hostsByState[StateNew])
-		err := p.Api.HostsCreate(hostsByState[StateNew])
+		err := p.api.HostsCreate(hostsByState[StateNew])
 		if err != nil {
 			return errors.Wrap(err, "Failed in creating host")
 		}
@@ -449,19 +417,19 @@ func (p *Provisioner) ApplyChanges() error {
 
 	if len(hostsByState[StateUpdated]) != 0 {
 		log.Debugf("Updating Hosts: %+v\n", hostsByState[StateUpdated])
-		err := p.Api.HostsUpdate(hostsByState[StateUpdated])
+		err := p.api.HostsUpdate(hostsByState[StateUpdated])
 		if err != nil {
 			return errors.Wrap(err, "Failed in updating host")
 		}
 	}
 
 	for _, host := range p.Hosts {
-		log.Info("Updating host:", host.Name)
+		log.Debugf("Updating host, hostName: %s", host.Name)
 
 		applicationsByState := host.GetApplicationsByState()
 		if len(applicationsByState[StateOld]) != 0 {
 			log.Debugf("Deleting applications: %+v\n", applicationsByState[StateOld])
-			err := p.Api.ApplicationsDelete(applicationsByState[StateOld])
+			err := p.api.ApplicationsDelete(applicationsByState[StateOld])
 			if err != nil {
 				return errors.Wrap(err, "Failed in deleting applications")
 			}
@@ -469,7 +437,7 @@ func (p *Provisioner) ApplyChanges() error {
 
 		if len(applicationsByState[StateNew]) != 0 {
 			log.Debugf("Creating applications: %+v\n", applicationsByState[StateNew])
-			err := p.Api.ApplicationsCreate(applicationsByState[StateNew])
+			err := p.api.ApplicationsCreate(applicationsByState[StateNew])
 			if err != nil {
 				return errors.Wrap(err, "Failed in creating applications")
 			}
@@ -481,7 +449,7 @@ func (p *Provisioner) ApplyChanges() error {
 
 		if len(triggersByState[StateOld]) != 0 {
 			log.Debugf("Deleting triggers: %+v\n", triggersByState[StateOld])
-			err := p.Api.TriggersDelete(triggersByState[StateOld])
+			err := p.api.TriggersDelete(triggersByState[StateOld])
 			if err != nil {
 				return errors.Wrap(err, "Failed in deleting triggers")
 			}
@@ -489,7 +457,7 @@ func (p *Provisioner) ApplyChanges() error {
 
 		if len(itemsByState[StateOld]) != 0 {
 			log.Debugf("Deleting items: %+v\n", itemsByState[StateOld])
-			err := p.Api.ItemsDelete(itemsByState[StateOld])
+			err := p.api.ItemsDelete(itemsByState[StateOld])
 			if err != nil {
 				return errors.Wrap(err, "Failed in deleting items")
 			}
@@ -497,7 +465,7 @@ func (p *Provisioner) ApplyChanges() error {
 
 		if len(itemsByState[StateUpdated]) != 0 {
 			log.Debugf("Updating items: %+v\n", itemsByState[StateUpdated])
-			err := p.Api.ItemsUpdate(itemsByState[StateUpdated])
+			err := p.api.ItemsUpdate(itemsByState[StateUpdated])
 			if err != nil {
 				return errors.Wrap(err, "Failed in updating items")
 			}
@@ -505,7 +473,7 @@ func (p *Provisioner) ApplyChanges() error {
 
 		if len(triggersByState[StateUpdated]) != 0 {
 			log.Debugf("Updating triggers: %+v\n", triggersByState[StateUpdated])
-			err := p.Api.TriggersUpdate(triggersByState[StateUpdated])
+			err := p.api.TriggersUpdate(triggersByState[StateUpdated])
 			if err != nil {
 				return errors.Wrap(err, "Failed in updating triggers")
 			}
@@ -513,7 +481,7 @@ func (p *Provisioner) ApplyChanges() error {
 
 		if len(itemsByState[StateNew]) != 0 {
 			log.Debugf("Creating items: %+v\n", itemsByState[StateNew])
-			err := p.Api.ItemsCreate(itemsByState[StateNew])
+			err := p.api.ItemsCreate(itemsByState[StateNew])
 			if err != nil {
 				return errors.Wrap(err, "Failed in creating items")
 			}
@@ -521,12 +489,11 @@ func (p *Provisioner) ApplyChanges() error {
 
 		if len(triggersByState[StateNew]) != 0 {
 			log.Debugf("Creating triggers: %+v\n", triggersByState[StateNew])
-			err := p.Api.TriggersCreate(triggersByState[StateNew])
+			err := p.api.TriggersCreate(triggersByState[StateNew])
 			if err != nil {
 				return errors.Wrap(err, "Failed in creating triggers")
 			}
 		}
 	}
 	return nil
-
 }

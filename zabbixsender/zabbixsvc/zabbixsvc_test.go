@@ -1,18 +1,14 @@
 package zabbixsvc_test
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/devopyio/zabsnd/zabbixsender/zabbixsnd"
-
-	"github.com/julienschmidt/httprouter"
-
-	"net"
-
-	"github.com/devopyio/zabsnd/zabbixsender/zabbixsvc"
+	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsnd"
+	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsvc"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -133,16 +129,8 @@ const (
 	 }`
 )
 
-var cfg zabbixsvc.ZabbixSenderConfig
-
-func TestConfigFromFile(t *testing.T) {
-	_, err := zabbixsvc.LoadConfig("")
-	if err == nil {
-		t.Fatalf("Wanted error, got %s", err)
-	}
-}
-
 func TestJSONHandlerOK(t *testing.T) {
+	const expectedMsg = "ZBXD\x01}\x00\x00\x00\x00\x00\x00\x00{\"request\":\"sender data\",\"data\":[{\"host\":\"Testing\",\"key\":\".instancedown\",\"value\":\"0\",\"clock\""
 	l, err := net.Listen("tcp", "127.0.0.1:3000")
 	if err != nil {
 		t.Fatal(err)
@@ -151,87 +139,71 @@ func TestJSONHandlerOK(t *testing.T) {
 
 	go func() {
 		for {
-			log.Info("here")
 			conn, err := l.Accept()
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer conn.Close()
-			buf := make([]byte, 112)
+			buf := make([]byte, 141)
 			_, err = conn.Read(buf)
 			if err != nil {
 				t.Fatal(err)
 			}
 			log.Info(string(buf))
 
-			if msg := string(buf); msg != "ZBXD\x01x\x00\x00\x00\x00\x00\x00\x00{\"request\":\"sender data\",\"data\":[{\"host\":\"Testing\",\"key\":\"any.instancedown\",\"value\":\"0\",\"clock\":48}" {
-				t.Fatalf("Unexpected message:\nGot:\t\t%s\nExpected:\t%s\n", msg, "Request sent")
+			if msg := string(buf[:105]); msg != expectedMsg {
+				t.Fatalf("Unexpected message:\nGot:\t\t%s\nExpected:\t%s\n", msg, expectedMsg)
 			}
 			_, err = conn.Write([]byte("ZBXD\x01Z\x00\x00\x00\x00\x00\x00\x00{\"response\":\"success\",\"info\":\"processed: 1; failed: 0; total: 1; seconds spent: 0.000041\"}"))
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			conn.Read(buf)
-
 			return
 		}
 	}()
 
-	h := &zabbixsvc.JSONHandler{
-		Router: httprouter.New(),
-		Logger: log.New(),
-	}
-	h.ZabbixSender.Sender = zabbixsnd.Sender{
-		Host: "127.0.0.1",
-		Port: 3000,
-	}
-	h.ZabbixSender.Config = zabbixsvc.ZabbixSenderConfig{
-		ZabbixServerHost:     "127.0.0.1",
-		ZabbixServerPort:     3000,
-		ZabbixHostAnnotation: "Testing",
-		ZabbixKeyPrefix:      "any",
+	s, err := zabbixsnd.New("127.0.0.1:3000")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	h.Router.POST("/", h.HandlePost)
+	h := &zabbixsvc.JSONHandler{
+		Sender:      s,
+		DefaultHost: "Testing",
+	}
+
 	rr := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", "/", strings.NewReader(alertOK))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	h.ServeHTTP(rr, req)
+	h.HandlePost(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatal("Expected working, got error:", rr.Code)
 	}
-
 }
 
 func TestJSONHandlerStatusBadRequest(t *testing.T) {
-	h := &zabbixsvc.JSONHandler{
-		Router: httprouter.New(),
-		Logger: log.New(),
-	}
-	h.ZabbixSender.Sender = zabbixsnd.Sender{
-		Host: "127.0.0.1",
-		Port: 3000,
-	}
-	h.ZabbixSender.Config = zabbixsvc.ZabbixSenderConfig{
-		ZabbixServerHost:     "127.0.0.1",
-		ZabbixServerPort:     3000,
-		ZabbixHostAnnotation: "Testing",
-		ZabbixKeyPrefix:      "any",
+	s, err := zabbixsnd.New("127.0.0.1:3000")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	h.Router.POST("/", h.HandlePost)
+	h := &zabbixsvc.JSONHandler{
+		Sender:      s,
+		DefaultHost: "host",
+	}
+
 	rr := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", "/", strings.NewReader(alertBadReqErr))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	h.ServeHTTP(rr, req)
+	h.HandlePost(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatal("Expected error, got:", rr.Code)
@@ -239,34 +211,27 @@ func TestJSONHandlerStatusBadRequest(t *testing.T) {
 
 }
 func TestJSONHandlerMissingFields(t *testing.T) {
-	h := &zabbixsvc.JSONHandler{
-		Router: httprouter.New(),
-		Logger: log.New(),
-	}
-	h.ZabbixSender.Sender = zabbixsnd.Sender{
-		Host: "127.0.0.1",
-		Port: 3000,
-	}
-	h.ZabbixSender.Config = zabbixsvc.ZabbixSenderConfig{
-		ZabbixServerHost:     "127.0.0.1",
-		ZabbixServerPort:     3000,
-		ZabbixHostAnnotation: "Testing",
-		ZabbixKeyPrefix:      "any",
+	s, err := zabbixsnd.New("127.0.0.1:3000")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	h.Router.POST("/", h.HandlePost)
+	h := &zabbixsvc.JSONHandler{
+		Sender:      s,
+		DefaultHost: "host",
+	}
+
 	rr := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", "/", strings.NewReader(alertMissingFields))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	h.ServeHTTP(rr, req)
+	h.HandlePost(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatal("Expected error, got:", rr.Code)
 	}
-
 }
 
 func TestJSONHandlerInternal(t *testing.T) {
@@ -278,7 +243,6 @@ func TestJSONHandlerInternal(t *testing.T) {
 
 	go func() {
 		for {
-			log.Info("here")
 			conn, err := l.Accept()
 			if err != nil {
 				t.Fatal(err)
@@ -293,29 +257,23 @@ func TestJSONHandlerInternal(t *testing.T) {
 		}
 	}()
 
-	h := &zabbixsvc.JSONHandler{
-		Router: httprouter.New(),
-		Logger: log.New(),
-	}
-	h.ZabbixSender.Sender = zabbixsnd.Sender{
-		Host: "127.0.0.1",
-		Port: 3000,
-	}
-	h.ZabbixSender.Config = zabbixsvc.ZabbixSenderConfig{
-		ZabbixServerHost:     "127.0.0.1",
-		ZabbixServerPort:     3000,
-		ZabbixHostAnnotation: "Testing",
-		ZabbixKeyPrefix:      "any",
+	s, err := zabbixsnd.New("127.0.0.1:3000")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	h.Router.POST("/", h.HandlePost)
+	h := &zabbixsvc.JSONHandler{
+		Sender:      s,
+		DefaultHost: "host",
+	}
+
 	rr := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", "/", strings.NewReader(alertInternal))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	h.ServeHTTP(rr, req)
+	h.HandlePost(rr, req)
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatal("Expected error, got:", rr.Code)

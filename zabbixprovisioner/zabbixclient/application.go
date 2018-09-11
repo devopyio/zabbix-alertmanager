@@ -1,7 +1,7 @@
 package zabbix
 
 import (
-	reflector "github.com/devopyio/zabsnd/zabbixprovisioner/zabbixutil"
+	reflector "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/zabbixutil"
 )
 
 // https://www.zabbix.com/documentation/2.2/manual/appendix/api/application/definitions

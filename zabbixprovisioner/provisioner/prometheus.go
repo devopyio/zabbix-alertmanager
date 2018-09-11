@@ -25,7 +25,7 @@ type PrometheusResponse struct {
 	Rules []PrometheusRule `json:"rules"`
 }
 
-func GetRulesFromFile(filename string) ([]PrometheusRule, error) {
+func LoadPrometheusRulesFromFile(filename string) ([]PrometheusRule, error) {
 	alertsFile, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't open the alerts file")

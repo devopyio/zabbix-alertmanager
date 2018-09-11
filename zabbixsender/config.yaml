@@ -1,8 +1,0 @@
-# Hostname of your zabbix server
-zabbixServerHost: 127.0.0.1
-# Trapper port of your zabbix server
-zabbixServerPort: 10051
-# Look in this annotation for a zabbix host to send alerts to, if not present alert is ignored
-zabbixHostAnnotation: Testing
-# Items key prefix, keys will be zabbixKeyPrefix.alertname
-zabbixKeyPrefix: prometheus

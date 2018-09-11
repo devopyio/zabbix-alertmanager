@@ -3,7 +3,7 @@ package provisioner
 import (
 	"strings"
 
-	zabbix "github.com/devopyio/zabsnd/zabbixprovisioner/zabbixclient"
+	zabbix "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/zabbixclient"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,7 +59,6 @@ type CustomZabbix struct {
 }
 
 func (z *CustomZabbix) AddHost(host *CustomHost) (updatedHost *CustomHost) {
-
 	updatedHost = host
 
 	if existing, ok := z.Hosts[host.Name]; ok {
@@ -129,7 +128,6 @@ func (host *CustomHost) AddTrigger(trigger *CustomTrigger) {
 }
 
 func (host *CustomHost) AddApplication(application *CustomApplication) {
-
 	if _, ok := host.Applications[application.Name]; ok {
 		if application.State == StateOld {
 			application.State = StateEqual
@@ -139,7 +137,6 @@ func (host *CustomHost) AddApplication(application *CustomApplication) {
 }
 
 func (z *CustomZabbix) AddHostGroup(hostGroup *CustomHostGroup) {
-
 	if _, ok := z.HostGroups[hostGroup.Name]; ok {
 		if hostGroup.State == StateOld {
 			hostGroup.State = StateEqual

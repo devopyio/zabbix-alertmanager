@@ -55,14 +55,14 @@ func New(prometheusAlertPath, keyPrefix, url, user, password string, hosts []Hos
 func LoadHostConfigFromFile(filename string) (cfg []HostConfig, err error) {
 	configFile, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't open the config file: %s")
+		return nil, errors.Wrapf(err, "can't open the config file: %s", filename)
 	}
 
 	hosts := []HostConfig{}
 
 	err = yaml.Unmarshal(configFile, &hosts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't read the config file: %s")
+		return nil, errors.Wrapf(err, "can't read the config file: %s", filename)
 	}
 
 	return cfg, nil

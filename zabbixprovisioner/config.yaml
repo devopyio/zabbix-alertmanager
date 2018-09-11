@@ -1,38 +1,13 @@
-
-# Polling interval in seconds
-rulesPollingInterval: 3600
-
-# Full URL to your Zabbix API
-zabbixApiUrl: http://127.0.0.1/zabbix/api_jsonrpc.php
-
-# If your Zabbix server use internal certificates, you can provide a CA bundle for your company (or leave it blank)
-zabbixApiCAFile:
-
-# This can also be set via the environment variable ZABBIX_API_USER
-zabbixApiUser: Admin
-
-# This can also be set via the environment variable ZABBIX_API_PASSWORD
-zabbixApiPassword: zabbix
-
-# Zabbix items key prefix, keys will be zabbixKeyPrefix.alertname
-zabbixKeyPrefix: prometheus
-
-# List of host configuration
-zabbixHosts:
-  # Name of the host in zabbix
-  - name: Testing
-    # Key/Value pairs that must be present on a prometheus rule in order for it to be selected for that host
-    selector:
-      zabbix: Testing
-    # List of host groups the host will belong to
-    hostGroups:
-      - prometheus
-    # tag and deploymentStatus are inventory fields currently supported for an host
-    tag: MYTAG
-    deploymentStatus: 0
-    # itemDefault* below, defines item values when not specified in a rule
-    itemDefaultApplication: prometheus
-    # For history and trends in zabbix 2.x you have to put those in days like 7 or 90
-    itemDefaultHistory: 5d
-    itemDefaultTrends: 190d
-    itemDefaultTrapperHosts: # Hosts permitted to send data (your webhook external CIDR, default is from everywhere)
+# Name of the host in zabbix
+- name: infra
+  hostGroups:
+    - prometheus
+  # tag and deploymentStatus are inventory fields currently supported for an host
+  tag: prometheus
+  deploymentStatus: 0
+  # itemDefault* below, defines item values when not specified in a rule
+  itemDefaultApplication: prometheus
+  # For history and trends in zabbix 2.x you have to put those in days like 7 or 90
+  itemDefaultHistory: 5d
+  itemDefaultTrends: 5d
+  itemDefaultTrapperHosts: # Hosts permitted to send data (your webhook external CIDR, default is from everywhere)

@@ -52,7 +52,7 @@ func New(prometheusAlertPath, keyPrefix, url, user, password string, hosts []Hos
 	}, nil
 }
 
-func LoadHostConfigFromFile(filename string) (cfg []HostConfig, err error) {
+func LoadHostConfigFromFile(filename string) ([]HostConfig, error) {
 	configFile, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't open the config file: %s", filename)
@@ -65,7 +65,7 @@ func LoadHostConfigFromFile(filename string) (cfg []HostConfig, err error) {
 		return nil, errors.Wrapf(err, "can't read the config file: %s", filename)
 	}
 
-	return cfg, nil
+	return hosts, nil
 }
 
 func (p *Provisioner) Run() error {
@@ -95,6 +95,8 @@ func (p *Provisioner) LoadRulesFromPrometheus(filename string) error {
 	if err != nil {
 		return errors.Wrap(err, "error loading rules")
 	}
+
+	log.Infof("Prometheus Rules loaded: %v", len(rules))
 
 	for _, hostConfig := range p.hosts {
 		newHost := &CustomHost{
@@ -252,6 +254,7 @@ func (p *Provisioner) LoadRulesFromPrometheus(filename string) error {
 		log.Debugf("Host from Prometheus: %+v", newHost)
 		p.AddHost(newHost)
 	}
+
 	return nil
 }
 
@@ -262,6 +265,10 @@ func (p *Provisioner) LoadDataFromZabbix() error {
 	for i, _ := range p.hosts {
 		hostNames[i] = p.hosts[i].Name
 		hostGroupNames = append(hostGroupNames, p.hosts[i].HostGroups...)
+	}
+
+	if len(hostNames) == 0 {
+		return errors.Errorf("error no hosts are defined")
 	}
 
 	zabbixHostGroups, err := p.api.HostGroupsGet(zabbix.Params{

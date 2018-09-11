@@ -16,6 +16,8 @@ type PrometheusAlertRules struct {
 type PrometheusRule struct {
 	Name        string            `yaml:"alert"`
 	Annotations map[string]string `yaml:"annotations"`
+	Expression  string            `yaml:"expr"`
+	Labels      map[string]string `yaml:"labels"`
 }
 
 func LoadPrometheusRulesFromFile(filename string) ([]PrometheusRule, error) {

@@ -226,6 +226,14 @@ func (i *CustomTrigger) Equal(j *CustomTrigger) bool {
 		return false
 	}
 
+	if i.URL != j.URL {
+		return false
+	}
+
+	if i.ManualClose != j.ManualClose {
+		return false
+	}
+
 	return true
 }
 

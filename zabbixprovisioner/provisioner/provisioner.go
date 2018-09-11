@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 
 	zabbix "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/zabbixclient"
@@ -28,10 +29,11 @@ type Provisioner struct {
 	keyPrefix           string
 	prometheusAlertPath string
 	hosts               []HostConfig
+	prometheusUrl       string
 	*CustomZabbix
 }
 
-func New(prometheusAlertPath, keyPrefix, url, user, password string, hosts []HostConfig) (*Provisioner, error) {
+func New(prometheusAlertPath, prometheusUrl, keyPrefix, url, user, password string, hosts []HostConfig) (*Provisioner, error) {
 	transport := http.DefaultTransport
 
 	api := zabbix.NewAPI(url)
@@ -49,6 +51,7 @@ func New(prometheusAlertPath, keyPrefix, url, user, password string, hosts []Hos
 		keyPrefix:           keyPrefix,
 		prometheusAlertPath: prometheusAlertPath,
 		hosts:               hosts,
+		prometheusUrl:       prometheusUrl,
 	}, nil
 }
 
@@ -163,62 +166,27 @@ func (p *Provisioner) LoadRulesFromPrometheus(filename string) error {
 				Trigger: zabbix.Trigger{
 					Description: rule.Name,
 					Expression:  fmt.Sprintf("{%s:%s.last()}<>0", newHost.Name, key),
+					ManualClose: 1,
 				},
 			}
 
-			for k, v := range rule.Annotations {
-				switch k {
-				case "zabbix_applications":
-
-					// List of applications separated by comma
-					applicationNames := strings.Split(v, ",")
-					for _, applicationName := range applicationNames {
-						newApplication := &CustomApplication{
-							State: StateNew,
-							Application: zabbix.Application{
-								Name: applicationName,
-							},
-						}
-
-						newHost.AddApplication(newApplication)
-
-						if _, ok := newItem.Applications[applicationName]; !ok {
-							newItem.Applications[applicationName] = struct{}{}
-						}
-					}
-				case "description":
-					// If a specific description for this item is not present use the default prometheus description
-					if _, ok := rule.Annotations["zabbix_description"]; !ok {
-						newItem.Description = v
-					}
-
-					// If a specific description for this trigger is not present use the default prometheus description
-					// Note that trigger "description" are called "comments" in the Zabbix api
-					if _, ok := rule.Annotations["zabbix_trigger_description"]; !ok {
-						newTrigger.Comments = v
-					}
-				case "zabbix_description":
-					newItem.Description = v
-				case "zabbix_history":
-					newItem.History = v
-				case "zabbix_trend":
-					newItem.Trends = v
-				case "zabbix_trapper_hosts":
-					newItem.TrapperHosts = v
-				case "summary":
-					// Note that trigger "name" is called "description" in the Zabbix api
-					if _, ok := rule.Annotations["zabbix_trigger_name"]; !ok {
-						newTrigger.Description = v
-					}
-				case "zabbix_trigger_name":
-					newTrigger.Description = v
-				case "zabbix_trigger_description":
-					newTrigger.Comments = v
-				case "zabbix_trigger_severity":
-					newTrigger.Priority = GetZabbixPriority(v)
-				default:
-					continue
+			if p.prometheusUrl != "" {
+				url := p.prometheusUrl + "/graph?g0.expr=" + url.QueryEscape(rule.Expression)
+				if len(url) < 255 {
+					newTrigger.URL = url
 				}
+			}
+
+			if v, ok := rule.Annotations["summary"]; ok {
+				newTrigger.Comments = v
+			} else if v, ok := rule.Annotations["message"]; ok {
+				newTrigger.Comments = v
+			} else if v, ok := rule.Annotations["description"]; ok {
+				newTrigger.Comments = v
+			}
+
+			if v, ok := rule.Labels["severity"]; ok {
+				newTrigger.Priority = GetZabbixPriority(v)
 			}
 
 			// If no applications are found in the rule, add the default application declared in the configuration

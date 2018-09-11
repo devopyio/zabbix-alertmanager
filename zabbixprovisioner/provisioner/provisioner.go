@@ -58,7 +58,7 @@ func LoadHostConfigFromFile(filename string) (cfg []HostConfig, err error) {
 		return nil, errors.Wrapf(err, "can't open the config file: %s", filename)
 	}
 
-	hosts := []HostConfig{}
+	hosts := HostConfig{}
 
 	err = yaml.Unmarshal(configFile, &hosts)
 	if err != nil {

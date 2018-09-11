@@ -9,20 +9,13 @@ import (
 
 type PrometheusAlertRules struct {
 	Groups []struct {
-		Rules []struct {
-			Name        string            `yaml:"alert"`
-			Annotations map[string]string `yaml:"annotations"`
-		} `yaml:"rules"`
+		Rules []PrometheusRule `yaml:"rules"`
 	} `yaml:"groups"`
 }
 
 type PrometheusRule struct {
-	Name        string            `yaml:"name"`
+	Name        string            `yaml:"alert"`
 	Annotations map[string]string `yaml:"annotations"`
-}
-
-type PrometheusResponse struct {
-	Rules []PrometheusRule `json:"rules"`
 }
 
 func LoadPrometheusRulesFromFile(filename string) ([]PrometheusRule, error) {
@@ -31,25 +24,16 @@ func LoadPrometheusRulesFromFile(filename string) ([]PrometheusRule, error) {
 		return nil, errors.Wrapf(err, "can't open the alerts file")
 	}
 
-	rule := PrometheusAlertRules{}
+	ruleConfig := PrometheusAlertRules{}
 
-	err = yaml.Unmarshal(alertsFile, &rule)
+	err = yaml.Unmarshal(alertsFile, &ruleConfig)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't read the alerts file")
 	}
-	rules := []PrometheusRule{}
-	temp := PrometheusRule{}
-	temp.Annotations = make(map[string]string)
-	for _, groups := range rule.Groups {
-		for _, grrules := range groups.Rules {
-			temp.Name = grrules.Name
-			for key, annotation := range grrules.Annotations {
-				temp.Annotations[key] = annotation
+	var rules []PrometheusRule
 
-			}
-			rules = append(rules, temp)
-		}
+	for _, rule := range ruleConfig.Groups {
+		rules = append(rules, rule.Rules...)
 	}
-
 	return rules, nil
 }

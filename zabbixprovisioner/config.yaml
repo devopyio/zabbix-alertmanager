@@ -3,7 +3,7 @@
 rulesPollingInterval: 3600
 
 # Full URL to your Zabbix API
-zabbixApiUrl: http://127.0.0.1/zabbix/api_jsonrpc.php
+zabbixApiUrl:  https://127.0.0.1/zabbix/api_jsonrpc.php
 
 # If your Zabbix server use internal certificates, you can provide a CA bundle for your company (or leave it blank)
 zabbixApiCAFile:

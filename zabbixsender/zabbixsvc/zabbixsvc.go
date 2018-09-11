@@ -30,6 +30,11 @@ type Alert struct {
 	EndsAt      string            `json:"EndsAt,omitempty"`
 }
 
+type ZabbixResponse struct {
+	Response string `json:"response"`
+	Info     string `json:"info"`
+}
+
 //JSONHandler handles alerts
 type JSONHandler struct {
 	Sender      *zabbixsnd.Sender
@@ -80,6 +85,16 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
 	}
 
+	var zres ZabbixResponse
+	if err := json.Unmarshal(res[13:], &zres); err != nil {
+		log.Fatal(err)
+	}
+
+	infoSplit := strings.Split(zres.Info, " ")
+
+	if strings.Trim(infoSplit[3], ";") != "0" || zres.Response != "success" {
+		log.Fatal("failed to fulfill the request")
+	}
 	log.Debugf("request succesfully sent: %s", res)
 }
 

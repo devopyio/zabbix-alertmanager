@@ -2,6 +2,7 @@ package zabbixsvc
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -28,6 +29,11 @@ type Alert struct {
 	Annotations map[string]string `json:"annotations"`
 	StartsAt    string            `json:"startsAt,omitempty"`
 	EndsAt      string            `json:"EndsAt,omitempty"`
+}
+
+type ZabbixResponse struct {
+	Response string `json:"response"`
+	Info     string `json:"info"`
 }
 
 //JSONHandler handles alerts
@@ -79,11 +85,12 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("failed to send to server: %s", err)
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
 	}
-
 	log.Debugf("request succesfully sent: %s", res)
 }
 
-func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) ([]byte, error) {
+func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, error) {
+	var zres ZabbixResponse
+
 	packet := zabbixsnd.NewPacket(metrics)
 
 	res, err := h.Sender.Send(packet)
@@ -91,5 +98,14 @@ func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) ([]byte, error) {
 		return nil, err
 	}
 
-	return res, nil
+	if err := json.Unmarshal(res[13:], &zres); err != nil {
+		return nil, err
+	}
+
+	infoSplit := strings.Split(zres.Info, " ")
+	if strings.Trim(infoSplit[3], ";") != "0" || zres.Response != "success" {
+		return nil, errors.New("failed to fulfill the requests: " + strings.Trim(infoSplit[5], ";"))
+	}
+
+	return &zres, nil
 }

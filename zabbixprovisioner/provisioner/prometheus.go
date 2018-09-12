@@ -2,6 +2,7 @@ package provisioner
 
 import (
 	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -28,8 +29,8 @@ func LoadPrometheusRulesFromDir(dir string) ([]PrometheusRule, error) {
 	var rules []PrometheusRule
 
 	for _, file := range filesInDir {
-		if strings.HasSuffix(file.Name(), ".yml") {
-			alertsFile, err := ioutil.ReadFile(dir + file.Name())
+		if strings.HasSuffix(file.Name(), ".yml") || strings.HasSuffix(file.Name(), ".yaml") {
+			alertsFile, err := ioutil.ReadFile(filepath.Join(dir + file.Name()))
 			if err != nil {
 				return nil, errors.Wrapf(err, "can't open the alerts file-", file.Name())
 			}

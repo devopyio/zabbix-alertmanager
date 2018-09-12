@@ -2,6 +2,7 @@ package zabbixsvc
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -84,11 +85,6 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("failed to send to server: %s", err)
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
 	}
-
-	infoSplit := strings.Split(res.Info, " ")
-	if strings.Trim(infoSplit[3], ";") != "0" || res.Response != "success" {
-		log.Errorf("failed to fulfill the requests: %s", strings.Trim(infoSplit[5], ";"))
-	}
 	log.Debugf("request succesfully sent: %s", res)
 }
 
@@ -104,6 +100,11 @@ func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, 
 
 	if err := json.Unmarshal(res[13:], &zres); err != nil {
 		return nil, err
+	}
+
+	infoSplit := strings.Split(zres.Info, " ")
+	if strings.Trim(infoSplit[3], ";") != "0" || zres.Response != "success" {
+		return nil, errors.New("failed to fulfill the requests: " + strings.Trim(infoSplit[5], ";"))
 	}
 
 	return &zres, nil

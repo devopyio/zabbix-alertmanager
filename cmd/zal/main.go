@@ -35,6 +35,7 @@ func main() {
 	provPassword := prov.Flag("password", "Zabbix json rpc password.").Envar("ZABBIX_PASSWORD").Required().String()
 	provURL := prov.Flag("url", "Zabbix json rpc url.").Envar("ZABBIX_URL").Default("https://127.0.0.1/zabbix/api_jsonrpc.php").String()
 	provKeyPrefix := prov.Flag("key-prefix", "Prefix to add to the trapper item key.").Default("prometheus").String()
+	prometheusURL := prov.Flag("prometheus-url", "Prometheus URL.").Default("").String()
 
 	logLevel := app.Flag("log.level", "Log level.").
 		Default("info").Enum("error", "warn", "info", "debug")
@@ -88,7 +89,7 @@ func main() {
 		}
 		log.Infof("loaded hosts configuration from '%s'", *provConfig)
 
-		prov, err := provisioner.New(*provAlerts, *provKeyPrefix, *provURL, *provUser, *provPassword, cfg)
+		prov, err := provisioner.New(*provAlerts, *prometheusURL, *provKeyPrefix, *provURL, *provUser, *provPassword, cfg)
 		if err != nil {
 			log.Fatalf("error failed to create provisioner: %s", err)
 		}

@@ -23,17 +23,17 @@ func main() {
 	app.HelpFlag.Short('h')
 
 	send := app.Command("send", "Start zabbix sender.")
-	senderAddr := send.Arg("addr", "Server address which will receive alerts from alertmanager.").Required().String()
-	zabbixAddr := send.Arg("zabbix-addr", "Zabbix address.").Required().String()
-	keyPrefix := send.Arg("key-prefix", "Prefix to add to the trapper item key").Default("prometheus").String()
-	defaultHost := send.Arg("default-host", "default host-name").Default("prometheus").String()
+	senderAddr := send.Flag("addr", "Server address which will receive alerts from alertmanager.").Default("0.0.0.0:9095").String()
+	zabbixAddr := send.Flag("zabbix-addr", "Zabbix address.").Envar("ZABBIX_URL").Required().String()
+	keyPrefix := send.Flag("key-prefix", "Prefix to add to the trapper item key").Default("prometheus").String()
+	defaultHost := send.Flag("default-host", "default host-name").Default("prometheus").String()
 
 	prov := app.Command("prov", "Start zabbix provisioner.")
 	provConfig := prov.Flag("config-path", "Path to provisioner hosts config file.").Required().String()
 	provAlerts := prov.Flag("alert-path", "Path to the prometheus alerts files.").Required().String()
 	provUser := prov.Flag("user", "Zabbix json rpc user.").Envar("ZABBIX_USER").Required().String()
 	provPassword := prov.Flag("password", "Zabbix json rpc password.").Envar("ZABBIX_PASSWORD").Required().String()
-	provURL := prov.Flag("url", "Zabbix json rpc url.").Envar("ZABBIX_URL").Default("https://127.0.0.1/zabbix/api_jsonrpc.php").String()
+	provURL := prov.Flag("url", "Zabbix json rpc url.").Envar("ZABBIX_URL").Default("http://127.0.0.1/zabbix/api_jsonrpc.php").String()
 	provKeyPrefix := prov.Flag("key-prefix", "Prefix to add to the trapper item key.").Default("prometheus").String()
 	prometheusURL := prov.Flag("prometheus-url", "Prometheus URL.").Default("").String()
 

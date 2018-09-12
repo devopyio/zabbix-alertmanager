@@ -171,6 +171,8 @@ func (p *Provisioner) LoadRulesFromPrometheus(dir string) error {
 			}
 
 			if p.prometheusUrl != "" {
+				newTrigger.URL = p.prometheusUrl + "/alerts"
+
 				url := p.prometheusUrl + "/graph?g0.expr=" + url.QueryEscape(rule.Expression)
 				if len(url) < 255 {
 					newTrigger.URL = url
@@ -187,6 +189,12 @@ func (p *Provisioner) LoadRulesFromPrometheus(dir string) error {
 
 			if v, ok := rule.Labels["severity"]; ok {
 				newTrigger.Priority = GetZabbixPriority(v)
+			}
+
+			// Add the special "No Data" trigger if requested
+			if delay, ok := rule.Annotations["zabbix_trigger_nodata"]; ok {
+				newTrigger.Trigger.Description = fmt.Sprintf("%s - no data for the last %s seconds", newTrigger.Trigger.Description, delay)
+				newTrigger.Trigger.Expression = fmt.Sprintf("{%s:%s.nodata(%s)}", newHost.Name, key, delay)
 			}
 
 			// If no applications are found in the rule, add the default application declared in the configuration
@@ -206,18 +214,6 @@ func (p *Provisioner) LoadRulesFromPrometheus(dir string) error {
 			log.Debugf("Loading trigger from Prometheus: %+v", newTrigger)
 			newHost.AddTrigger(newTrigger)
 
-			// Add the special "No Data" trigger if requested
-			if delay, ok := rule.Annotations["zabbix_trigger_nodata"]; ok {
-				noDataTrigger := &CustomTrigger{
-					State:   StateNew,
-					Trigger: newTrigger.Trigger,
-				}
-
-				noDataTrigger.Trigger.Description = fmt.Sprintf("%s - no data for the last %s seconds", newTrigger.Trigger.Description, delay)
-				noDataTrigger.Trigger.Expression = fmt.Sprintf("{%s:%s.nodata(%s)}", newHost.Name, key, delay)
-				log.Debugf("Trigger from Prometheus: %+v", noDataTrigger)
-				newHost.AddTrigger(noDataTrigger)
-			}
 		}
 		log.Debugf("Host from Prometheus: %+v", newHost)
 		p.AddHost(newHost)

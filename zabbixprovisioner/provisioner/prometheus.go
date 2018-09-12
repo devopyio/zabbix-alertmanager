@@ -32,7 +32,7 @@ func LoadPrometheusRulesFromDir(dir string) ([]PrometheusRule, error) {
 
 	for _, file := range filesInDir {
 		if strings.HasSuffix(file.Name(), ".yml") || strings.HasSuffix(file.Name(), ".yaml") {
-			alertsFile, err := ioutil.ReadFile(filepath.Join(dir + file.Name()))
+			alertsFile, err := ioutil.ReadFile(filepath.Join(dir, file.Name()))
 			if err != nil {
 				return nil, errors.Wrapf(err, "can't open the alerts file-", file.Name())
 			}
@@ -43,12 +43,24 @@ func LoadPrometheusRulesFromDir(dir string) ([]PrometheusRule, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "can't read the alerts file-", file.Name())
 			}
-
 			for _, rule := range ruleConfig.Groups {
-				rules = append(rules, rule.Rules...)
+				for _, alert := range rule.Rules {
+					if alert.Name != "" {
+						rules = append(rules, alert)
+					}
+				}
 			}
 
 		}
 	}
+
+	for i := 0; i < len(rules); i++ {
+		for j := i + 1; j < len(rules); j++ {
+			if rules[j].Name == rules[i].Name {
+				return nil, errors.Errorf("can't load rules with the same alertname: %v, index: %v, %v", rules[j].Name, i+1, j+1)
+			}
+		}
+	}
+
 	return rules, nil
 }

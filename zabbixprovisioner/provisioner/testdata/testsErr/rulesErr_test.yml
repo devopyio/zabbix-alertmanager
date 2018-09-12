@@ -1,5 +1,0 @@
-- alert: InstanceDown
-      expr: up == 0
-      for: 1m
-      labels:
-        severity: critical 

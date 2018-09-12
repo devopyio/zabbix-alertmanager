@@ -1,7 +1,7 @@
 groups:
   - name: testing1
     rules:
-    - alert: InstanceDown1
+    - alert: Instance5
       expr: up == 0
       for: 1m
       labels:
@@ -9,7 +9,7 @@ groups:
       annotations:
         summary: "Instance {{ $labels.instance }} down"
         description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
-    - alert: InstanceDown2
+    - alert: Instance6
       expr: up == 0
       for: 1m
       labels:
@@ -17,7 +17,7 @@ groups:
       annotations:
         summary: "Instance {{ $labels.instance }} down"
         description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
-    - alert: InstanceDown3
+    - alert:
       expr: up == 0
       for: 1m
       labels:
@@ -25,9 +25,9 @@ groups:
       annotations:
         summary: "Instance {{ $labels.instance }} down"
         description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
-  - name: testing2
+  - name: testing1
     rules:
-    - alert: InstanceDown5
+    - alert: Instance7
       expr: up == 0
       for: 1m
       labels:

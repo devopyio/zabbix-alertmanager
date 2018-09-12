@@ -11,6 +11,7 @@ import (
 	"github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/provisioner"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsnd"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsvc"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -33,7 +34,7 @@ func main() {
 	provAlerts := prov.Flag("alert-path", "Path to the prometheus alerts files.").Required().String()
 	provUser := prov.Flag("user", "Zabbix json rpc user.").Envar("ZABBIX_USER").Required().String()
 	provPassword := prov.Flag("password", "Zabbix json rpc password.").Envar("ZABBIX_PASSWORD").Required().String()
-	provURL := prov.Flag("url", "Zabbix json rpc url.").Envar("ZABBIX_URL").Default("https://127.0.0.1/zabbix/api_jsonrpc.php").String()
+	provURL := prov.Flag("url", "Zabbix json rpc url.").Envar("ZABBIX_URL").Default("http://127.0.0.1/zabbix/api_jsonrpc.php").String()
 	provKeyPrefix := prov.Flag("key-prefix", "Prefix to add to the trapper item key.").Default("prometheus").String()
 	prometheusURL := prov.Flag("prometheus-url", "Prometheus URL.").Default("").String()
 
@@ -77,7 +78,9 @@ func main() {
 		}
 
 		http.HandleFunc("/", h.HandlePost)
+		http.Handle("/metrics", promhttp.Handler())
 
+		log.Info("Zabbix sender started, listening on ", *senderAddr)
 		if err := http.ListenAndServe(*senderAddr, nil); err != nil {
 			log.Fatal(err)
 		}

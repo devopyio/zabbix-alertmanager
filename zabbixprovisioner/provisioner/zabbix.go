@@ -246,14 +246,21 @@ func (z *CustomZabbix) GetHostsByState() (hostByState map[State]zabbix.Hosts) {
 		StateEqual:   zabbix.Hosts{},
 	}
 
+	newHostAmmount := 0
 	for _, host := range z.Hosts {
 		for hostGroupName, _ := range host.HostGroups {
 			host.GroupIds = append(host.GroupIds, zabbix.HostGroupId{GroupId: z.HostGroups[hostGroupName].GroupId})
 		}
 		hostByState[host.State] = append(hostByState[host.State], host.Host)
-		log.Infof("GetHostByState = State: %s, Name: %s", StateName[host.State], host.Name)
+		if StateName[host.State] == "New" || StateName[host.State] == "Updated" {
+			newHostAmmount++
+			log.Infof("GetHostByState = State: %s, Name: %s", StateName[host.State], host.Name)
+		} else {
+			log.Debugf("GetHostByState = State: %s, Name: %s", StateName[host.State], host.Name)
+		}
 	}
 
+	log.Infof("HOSTS, total: %v, new or updated: %v", len(z.Hosts), newHostAmmount)
 	return hostByState
 }
 
@@ -266,10 +273,18 @@ func (z *CustomZabbix) GetHostGroupsByState() (hostGroupsByState map[State]zabbi
 		StateEqual:   zabbix.HostGroups{},
 	}
 
+	newHostGroupAmmount := 0
 	for _, hostGroup := range z.HostGroups {
 		hostGroupsByState[hostGroup.State] = append(hostGroupsByState[hostGroup.State], hostGroup.HostGroup)
-		log.Infof("GetHostGroupsByState = State: %s, Name: %s", StateName[hostGroup.State], hostGroup.Name)
+		if StateName[hostGroup.State] == "New" || StateName[hostGroup.State] == "Updated" {
+			newHostGroupAmmount++
+			log.Infof("GetHostGroupsByState = State: %s, Name: %s", StateName[hostGroup.State], hostGroup.Name)
+		} else {
+			log.Debugf("GetHostGroupsByState = State: %s, Name: %s", StateName[hostGroup.State], hostGroup.Name)
+		}
 	}
+
+	log.Infof("HOSTGROUPS, total: %v, new or updated: %v", len(z.HostGroups), newHostGroupAmmount)
 
 	return hostGroupsByState
 }
@@ -306,6 +321,7 @@ func (host *CustomHost) GetItemsByState() (itemsByState map[State]zabbix.Items) 
 		StateEqual:   zabbix.Items{},
 	}
 
+	newItemAmmount := 0
 	for _, item := range host.Items {
 		item.HostId = host.HostId
 		item.Item.ApplicationIds = []string{}
@@ -313,9 +329,15 @@ func (host *CustomHost) GetItemsByState() (itemsByState map[State]zabbix.Items) 
 			item.Item.ApplicationIds = append(item.Item.ApplicationIds, host.Applications[appName].ApplicationId)
 		}
 		itemsByState[item.State] = append(itemsByState[item.State], item.Item)
-		log.Infof("GetItemsByState = State: %s, Key: %s, Applications: %+v", StateName[item.State], item.Key, item.Applications)
+		if StateName[item.State] == "New" || StateName[item.State] == "Updated" {
+			newItemAmmount++
+			log.Infof("GetItemsByState = State: %s, Key: %s, Applications: %+v", StateName[item.State], item.Key, item.Applications)
+		} else {
+			log.Debugf("GetItemsByState = State: %s, Key: %s, Applications: %+v", StateName[item.State], item.Key, item.Applications)
+		}
 	}
 
+	log.Infof("ITEMS, total: %v, new or updated: %v", len(host.Items), newItemAmmount)
 	return itemsByState
 }
 
@@ -328,11 +350,18 @@ func (host *CustomHost) GetTriggersByState() (triggersByState map[State]zabbix.T
 		StateEqual:   zabbix.Triggers{},
 	}
 
+	newTriggerAmmount := 0
 	for _, trigger := range host.Triggers {
 		triggersByState[trigger.State] = append(triggersByState[trigger.State], trigger.Trigger)
-		log.Infof("GetTriggersByState = State: %s, Expression: %s", StateName[trigger.State], trigger.Expression)
+		if StateName[trigger.State] == "New" || StateName[trigger.State] == "Updated" {
+			newTriggerAmmount++
+			log.Infof("GetTriggersByState = State: %s, Expression: %s", StateName[trigger.State], trigger.Expression)
+		} else {
+			log.Debugf("GetTriggersByState = State: %s, Expression: %s", StateName[trigger.State], trigger.Expression)
+		}
 	}
 
+	log.Infof("TRIGGERS, total: %v, new or updated: %v", len(host.Triggers), newTriggerAmmount)
 	return triggersByState
 }
 
@@ -344,13 +373,19 @@ func (host *CustomHost) GetApplicationsByState() (applicationsByState map[State]
 		StateUpdated: zabbix.Applications{},
 		StateEqual:   zabbix.Applications{},
 	}
-
+	newAppAmmount := 0
 	for _, application := range host.Applications {
 		application.Application.HostId = host.HostId
 		applicationsByState[application.State] = append(applicationsByState[application.State], application.Application)
-		log.Infof("GetApplicationsByState = State: %s, Name: %s", StateName[application.State], application.Name)
+		if StateName[application.State] == "New" || StateName[application.State] == "Updated" {
+			newAppAmmount++
+			log.Infof("GetApplicationsByState = State: %s, Name: %s", StateName[application.State], application.Name)
+		} else {
+			log.Debugf("GetApplicationsByState = State: %s, Name: %s", StateName[application.State], application.Name)
+		}
 	}
 
+	log.Infof("APPLICATIONS, total: %v, new or updated: %v", len(host.Applications), newAppAmmount)
 	return applicationsByState
 }
 

@@ -1,7 +1,7 @@
 groups:
   - name: testing1
     rules:
-    - alert: Instance1
+    - alert: Instance
       expr: up == 0
       for: 1m
       labels:
@@ -11,7 +11,7 @@ groups:
         description: "{{ $labels.instance }} of job has been down for more than 1 minute."
   - name: testing2
     rules:
-    - alert: Instance2
+    - alert: Instance
       expr: up == 0
       for: 1m
       labels:

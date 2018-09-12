@@ -8,12 +8,13 @@ import (
 
 const (
 	rulesOKpath      = "./testdata/testsOK/"
-	rulesErrReadFile = "./testdata/testsErr/"
+	rulesErrReadFile = "./testdata/testsErr/read/"
 	rulesErrOpenDir  = ""
+	rulesErrSameName = "./testdata/testsErr/samename/"
 )
 
 func TestLoadPrometheusRulesFromPathOK(t *testing.T) {
-	expected := 8
+	expected := 7
 	rules, err := provisioner.LoadPrometheusRulesFromDir(rulesOKpath)
 	if err != nil {
 		t.Error("Expected to work, got :", err)
@@ -26,13 +27,20 @@ func TestLoadPrometheusRulesFromPathOK(t *testing.T) {
 func TestLoadPrometheusRulesFromPathErrorReadFile(t *testing.T) {
 	_, err := provisioner.LoadPrometheusRulesFromDir(rulesErrReadFile)
 	if err == nil {
-		t.Error("Expected to err, got :", err)
+		t.Error("Expected to get error, got :", err)
 	}
 }
 
 func TestLoadPrometheusRulesFromPathErrorOpenDir(t *testing.T) {
 	_, err := provisioner.LoadPrometheusRulesFromDir(rulesErrOpenDir)
 	if err == nil {
-		t.Error("Expected to err, got :", err)
+		t.Error("Expected to get error, got :", err)
+	}
+}
+
+func TestLoadPrometheusRulesFromPathErrorSameName(t *testing.T) {
+	_, err := provisioner.LoadPrometheusRulesFromDir(rulesErrSameName)
+	if err == nil {
+		t.Error("Expected to get error, got :", err)
 	}
 }

@@ -90,8 +90,8 @@ func (p *Provisioner) Run() error {
 }
 
 // Create hosts structures and populate them from Prometheus rules
-func (p *Provisioner) LoadRulesFromPrometheus(filename string) error {
-	rules, err := LoadPrometheusRulesFromFile(filename)
+func (p *Provisioner) LoadRulesFromPrometheus(dir string) error {
+	rules, err := LoadPrometheusRulesFromDir(dir)
 	if err != nil {
 		return errors.Wrap(err, "error loading rules")
 	}

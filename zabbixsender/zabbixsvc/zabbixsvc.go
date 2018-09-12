@@ -85,20 +85,16 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
 	}
 
-	var zres ZabbixResponse
-	if err := json.Unmarshal(res[13:], &zres); err != nil {
-		log.Fatal(err)
-	}
-
-	infoSplit := strings.Split(zres.Info, " ")
-
-	if strings.Trim(infoSplit[3], ";") != "0" || zres.Response != "success" {
-		log.Fatal("failed to fulfill the request")
+	infoSplit := strings.Split(res.Info, " ")
+	if strings.Trim(infoSplit[3], ";") != "0" || res.Response != "success" {
+		log.Errorf("failed to fulfill the requests: %s", strings.Trim(infoSplit[5], ";"))
 	}
 	log.Debugf("request succesfully sent: %s", res)
 }
 
-func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) ([]byte, error) {
+func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, error) {
+	var zres ZabbixResponse
+
 	packet := zabbixsnd.NewPacket(metrics)
 
 	res, err := h.Sender.Send(packet)
@@ -106,5 +102,9 @@ func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) ([]byte, error) {
 		return nil, err
 	}
 
-	return res, nil
+	if err := json.Unmarshal(res[13:], &zres); err != nil {
+		return nil, err
+	}
+
+	return &zres, nil
 }

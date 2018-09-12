@@ -33,7 +33,8 @@ func main() {
 	provAlerts := prov.Flag("alert-path", "Path to the prometheus alerts files.").Required().String()
 	provUser := prov.Flag("user", "Zabbix json rpc user.").Envar("ZABBIX_USER").Required().String()
 	provPassword := prov.Flag("password", "Zabbix json rpc password.").Envar("ZABBIX_PASSWORD").Required().String()
-	provURL := prov.Flag("url", "Zabbix json rpc url.").Envar("ZABBIX_URL").Default("https://127.0.0.1/zabbix/api_jsonrpc.php").String()
+	//TODO Change back http to https ---------------------------------------------------->
+	provURL := prov.Flag("url", "Zabbix json rpc url.").Envar("ZABBIX_URL").Default("http://127.0.0.1/zabbix/api_jsonrpc.php").String()
 	provKeyPrefix := prov.Flag("key-prefix", "Prefix to add to the trapper item key.").Default("prometheus").String()
 
 	logLevel := app.Flag("log.level", "Log level.").

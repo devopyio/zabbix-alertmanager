@@ -7,41 +7,32 @@ import (
 )
 
 const (
-	rulesOKpath      = "./testdata/rulesOK_test.yml"
-	rulesOKcyclepath = "./testdata/rulesOKcycle_test.yml"
-	rulesOpenErr     = ""
-	rulesReadErr     = "./testdata/rulesErr_test.yml"
+	rulesOKpath      = "./testdata/testsOK/"
+	rulesErrReadFile = "./testdata/testsErr/"
+	rulesErrOpenDir  = ""
 )
 
-func TestLoadPrometheusRulesFromFileOK(t *testing.T) {
-	expected := 4
-	rules, err := provisioner.LoadPrometheusRulesFromFile(rulesOKpath)
+func TestLoadPrometheusRulesFromPathOK(t *testing.T) {
+	expected := 8
+	rules, err := provisioner.LoadPrometheusRulesFromDir(rulesOKpath)
 	if err != nil {
-		t.Fatal("Expected to work, got :", err)
+		t.Error("Expected to work, got :", err)
 	}
-	t.Log(rules)
 	if len(rules) != expected {
-		t.Fatalf("Expeceted to get %d rules, but got %d", expected, len(rules))
+		t.Errorf("Expeceted to get %d rules, but got %d", expected, len(rules))
 	}
 }
-func TestLoadPrometheusRulesFromFileOK2(t *testing.T) {
-	expected := 5
-	rules, err := provisioner.LoadPrometheusRulesFromFile(rulesOKcyclepath)
-	if err != nil {
-		t.Fatal("Expected to work, got :", err)
-	}
-	t.Log(rules)
-	if len(rules) != expected {
-		t.Fatalf("Expeceted to get %d rules, but got %d", expected, len(rules))
+
+func TestLoadPrometheusRulesFromPathErrorReadFile(t *testing.T) {
+	_, err := provisioner.LoadPrometheusRulesFromDir(rulesErrReadFile)
+	if err == nil {
+		t.Error("Expected to err, got :", err)
 	}
 }
-func TestLoadPrometheusRulesFromFileOpenErr(t *testing.T) {
-	_, err := provisioner.LoadPrometheusRulesFromFile(rulesOpenErr)
+
+func TestLoadPrometheusRulesFromPathErrorOpenDir(t *testing.T) {
+	_, err := provisioner.LoadPrometheusRulesFromDir(rulesErrOpenDir)
 	if err == nil {
-		t.Fatal("Expected error, got", err)
-	}
-	_, err = provisioner.LoadPrometheusRulesFromFile(rulesReadErr)
-	if err == nil {
-		t.Fatal("Expected error, got", err)
+		t.Error("Expected to err, got :", err)
 	}
 }

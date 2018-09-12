@@ -23,7 +23,7 @@ type Packet struct {
 	Clock   int64     `json:"clock"`
 }
 
-//NewPacket creates nwe packet
+//NewPacket creates new packet
 func NewPacket(data []*Metric, clock ...int64) *Packet {
 	p := &Packet{Request: `sender data`, Data: data}
 	// use current time, if `clock` is not specified
@@ -88,8 +88,6 @@ func (s *Sender) Send(packet *Packet) ([]byte, error) {
 		return nil, err
 	}
 
-	//TODO: actually parse the protocol
-	//TODO: does read all work?
 	res, err := ioutil.ReadAll(conn)
 	if err != nil {
 		return nil, err

@@ -26,6 +26,7 @@ func main() {
 	send := app.Command("send", "Start zabbix sender.")
 	senderAddr := send.Arg("addr", "Server address which will receive alerts from alertmanager.").Required().String()
 	zabbixAddr := send.Arg("zabbix-addr", "Zabbix address.").Required().String()
+	defaultHostsFile := send.Arg("hosts-path", "Path to the default hosts file.").Required().String()
 	keyPrefix := send.Arg("key-prefix", "Prefix to add to the trapper item key").Default("prometheus").String()
 	defaultHost := send.Arg("default-host", "default host-name").Default("prometheus").String()
 
@@ -76,6 +77,13 @@ func main() {
 			KeyPrefix:   *keyPrefix,
 			DefaultHost: *defaultHost,
 		}
+
+		hosts, err := h.LoadHostsFromFile(*defaultHostsFile)
+		if err != nil {
+			log.Errorf("cant load the default hosts file: %v", err)
+		}
+
+		h.DefaultHosts = *hosts
 
 		http.HandleFunc("/", h.HandlePost)
 		http.Handle("/metrics", promhttp.Handler())

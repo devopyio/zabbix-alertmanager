@@ -1,0 +1,11 @@
+#TODO change values
+hosts: 
+  - 
+    default: value1
+    received: value1
+  - 
+    default: value2
+    received: value2
+  - 
+    default: value2
+    received: value2

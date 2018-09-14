@@ -26,7 +26,7 @@ func main() {
 	send := app.Command("send", "Start zabbix sender.")
 	senderAddr := send.Flag("addr", "Server address which will receive alerts from alertmanager.").Default("0.0.0.0:9095").String()
 	zabbixAddr := send.Flag("zabbix-addr", "Zabbix address.").Envar("ZABBIX_URL").Required().String()
-  defaultHostsFile := send.Arg("hosts-path", "Path to the default hosts file.").Required().String()
+        defaultHostsFile := send.Arg("hosts-path", "Path to the default hosts file.").Required().String()
 	keyPrefix := send.Flag("key-prefix", "Prefix to add to the trapper item key").Default("prometheus").String()
 	defaultHost := send.Flag("default-host", "default host-name").Default("prometheus").String()
 

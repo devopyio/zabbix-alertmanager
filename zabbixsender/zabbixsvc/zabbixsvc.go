@@ -67,11 +67,6 @@ var alertsErrorsTotal = promauto.NewGauge(
 	},
 )
 
-func init() {
-	prometheus.MustRegister(alertsSentStats)
-	prometheus.MustRegister(alertsErrorsTotal)
-}
-
 func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	defer r.Body.Close()
@@ -127,15 +122,16 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		alertsErrorsTotal.Inc()
 		log.Errorf("failed to send to server: %s", err)
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
-	}
-
-	if ammountOfResolved > 0 {
-		alertsSentStats.WithLabelValues("resolved").Inc()
 	} else {
-		alertsSentStats.WithLabelValues("unresolved").Inc()
-	}
 
-	log.Debugf("request succesfully sent: %s", res)
+		if ammountOfResolved > 0 {
+			alertsSentStats.WithLabelValues("resolved").Inc()
+		} else {
+			alertsSentStats.WithLabelValues("unresolved").Inc()
+		}
+
+		log.Debugf("request succesfully sent: %s", res)
+	}
 }
 
 func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, error) {

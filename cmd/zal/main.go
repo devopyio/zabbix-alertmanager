@@ -84,9 +84,8 @@ func main() {
 		}
 
 		h.DefaultHosts = *hosts
-
-		http.HandleFunc("/", h.HandlePost)
 		http.Handle("/metrics", promhttp.Handler())
+		http.HandleFunc("/alerts", h.HandlePost)
 
 		log.Info("Zabbix sender started, listening on ", *senderAddr)
 		if err := http.ListenAndServe(*senderAddr, nil); err != nil {

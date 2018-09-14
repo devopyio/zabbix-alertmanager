@@ -42,15 +42,11 @@ type ZabbixResponse struct {
 
 //JSONHandler handles alerts
 type JSONHandler struct {
-	Sender       *zabbixsnd.Sender
-	KeyPrefix    string
-	DefaultHost  string
-	DefaultHosts Hosts
-	//TODO: Introduce annotation to host mapping?
+	Sender      *zabbixsnd.Sender
+	KeyPrefix   string
+	DefaultHost string
+	Hosts       map[string]string
 }
-
-//TODO change to specific hosts and values in hosts.yaml
-type Hosts map[string]string
 
 var alertsSentStats = promauto.NewGaugeVec(
 	prometheus.GaugeOpts{
@@ -93,16 +89,15 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		value = "1"
 	}
 
-	var ammountOfResolved float64
 	if req.Status == "resolved" {
-		ammountOfResolved++
+		alertsSentStats.WithLabelValues("resolved").Inc()
+	} else {
+		alertsSentStats.WithLabelValues("unresolved").Inc()
 	}
 
-	host := h.DefaultHost
-	for hostReceived, hostDefault := range h.DefaultHosts {
-		if hostReceived == req.Receiver {
-			host = hostDefault
-		}
+	host, ok := h.Hosts[req.Receiver]
+	if !ok {
+		host = h.DefaultHost
 	}
 
 	var metrics []*zabbixsnd.Metric
@@ -123,13 +118,6 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("failed to send to server: %s", err)
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
 	} else {
-
-		if ammountOfResolved > 0 {
-			alertsSentStats.WithLabelValues("resolved").Inc()
-		} else {
-			alertsSentStats.WithLabelValues("unresolved").Inc()
-		}
-
 		log.Debugf("request succesfully sent: %s", res)
 	}
 }
@@ -157,18 +145,16 @@ func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, 
 	return &zres, nil
 }
 
-func (h *JSONHandler) LoadHostsFromFile(filename string) (*Hosts, error) {
+func (h *JSONHandler) LoadHostsFromFile(filename string) error {
 	hostsFile, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't open the alerts file- %v", filename)
+		return errors.Wrapf(err, "can't open the alerts file- %v", filename)
 	}
 
-	hostConfig := Hosts{}
-
-	err = yaml.Unmarshal(hostsFile, &hostConfig)
+	err = yaml.Unmarshal(hostsFile, &h.Hosts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't read the alerts file- %v", filename)
+		return errors.Wrapf(err, "can't read the alerts file- %v", filename)
 	}
 
-	return &hostConfig, nil
+	return nil
 }

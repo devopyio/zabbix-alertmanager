@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsnd"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -45,19 +45,14 @@ type JSONHandler struct {
 	Sender       *zabbixsnd.Sender
 	KeyPrefix    string
 	DefaultHost  string
-	DefaultHosts DefaultHosts
+	DefaultHosts Hosts
 	//TODO: Introduce annotation to host mapping?
 }
 
-//TODO change to specific hosts and values
-type DefaultHosts struct {
-	Hosts []struct {
-		Default  string `yaml:"default"`
-		Received string `yaml:"received"`
-	} `yaml:"hosts"`
-}
+//TODO change to specific hosts and values in hosts.yaml
+type Hosts map[string]string
 
-var alertsSentStats = prometheus.NewGaugeVec(
+var alertsSentStats = promauto.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "alerts_sent",
 		Help: "Current number of sent alerts by status",
@@ -65,7 +60,7 @@ var alertsSentStats = prometheus.NewGaugeVec(
 	[]string{"alert_status"},
 )
 
-var alertsErrorsTotal = prometheus.NewGauge(
+var alertsErrorsTotal = promauto.NewGauge(
 	prometheus.GaugeOpts{
 		Name: "alerts_errors_total",
 		Help: "Current number of different errors",
@@ -105,14 +100,13 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 
 	var ammountOfResolved float64
 	if req.Status == "resolved" {
-		ammountOfResolved = float64(len(req.Alerts))
+		ammountOfResolved++
 	}
 
 	host := h.DefaultHost
-	for _, hostDefault := range h.DefaultHosts.Hosts {
-		if hostDefault.Received == req.Receiver {
-			found := hostDefault.Default
-			host = found
+	for hostReceived, hostDefault := range h.DefaultHosts {
+		if hostReceived == req.Receiver {
+			host = hostDefault
 		}
 	}
 
@@ -128,15 +122,23 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		log.Debugf("sending zabbix metrics, host: '%s' key: '%s', value: '%s'", host, key, value)
 	}
 
-	res, err := h.zabbixSend(metrics, ammountOfResolved)
+	res, err := h.zabbixSend(metrics)
 	if err != nil {
+		alertsErrorsTotal.Inc()
 		log.Errorf("failed to send to server: %s", err)
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
 	}
+
+	if ammountOfResolved > 0 {
+		alertsSentStats.WithLabelValues("resolved").Inc()
+	} else {
+		alertsSentStats.WithLabelValues("unresolved").Inc()
+	}
+
 	log.Debugf("request succesfully sent: %s", res)
 }
 
-func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric, ammount float64) (*ZabbixResponse, error) {
+func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, error) {
 	var zres ZabbixResponse
 
 	packet := zabbixsnd.NewPacket(metrics)
@@ -149,35 +151,23 @@ func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric, ammount float64) (
 	if err := json.Unmarshal(res[13:], &zres); err != nil {
 		return nil, err
 	}
-
 	infoSplit := strings.Split(zres.Info, " ")
 
-	failed, err := strconv.Atoi(strings.Trim(infoSplit[3], ";"))
-	if err != nil {
-		return nil, err
-	}
-	if failed != 0 || zres.Response != "success" {
-		alertsErrorsTotal.Add(float64(failed))
+	failed := strings.Trim(infoSplit[3], ";")
+	if failed != "0" || zres.Response != "success" {
 		return nil, errors.Errorf("failed to fulfill the requests: %v", failed)
 	}
-
-	succes, err := strconv.Atoi(strings.Trim(infoSplit[1], ";"))
-	if err != nil {
-		return nil, err
-	}
-	alertsSentStats.WithLabelValues("resolved").Add(ammount)
-	alertsSentStats.WithLabelValues("unresolved").Add(float64(succes) - ammount)
 
 	return &zres, nil
 }
 
-func (h *JSONHandler) LoadHostsFromFile(filename string) (*DefaultHosts, error) {
+func (h *JSONHandler) LoadHostsFromFile(filename string) (*Hosts, error) {
 	hostsFile, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't open the alerts file- %v", filename)
 	}
 
-	hostConfig := DefaultHosts{}
+	hostConfig := Hosts{}
 
 	err = yaml.Unmarshal(hostsFile, &hostConfig)
 	if err != nil {

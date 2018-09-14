@@ -1,11 +1,3 @@
-#TODO change values
-hosts: 
-  - 
-    default: value1
-    received: value1
-  - 
-    default: value2
-    received: value2
-  - 
-    default: value2
-    received: value2
+received1: default1
+received2: default2
+received3: default3

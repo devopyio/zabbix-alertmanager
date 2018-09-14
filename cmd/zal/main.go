@@ -78,10 +78,11 @@ func main() {
 			DefaultHost: *defaultHost,
 		}
 
-		err = h.LoadHostsFromFile(*defaultHostsFile)
+		hosts, err := h.LoadHostsFromFile(*defaultHostsFile)
 		if err != nil {
 			log.Errorf("cant load the default hosts file: %v", err)
 		}
+		h.Hosts = hosts
 
 		http.Handle("/metrics", promhttp.Handler())
 		http.HandleFunc("/alerts", h.HandlePost)

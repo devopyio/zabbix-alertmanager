@@ -145,16 +145,17 @@ func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, 
 	return &zres, nil
 }
 
-func (h *JSONHandler) LoadHostsFromFile(filename string) error {
+func (h *JSONHandler) LoadHostsFromFile(filename string) (map[string]string, error) {
 	hostsFile, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return errors.Wrapf(err, "can't open the alerts file- %v", filename)
+		return nil, errors.Wrapf(err, "can't open the alerts file- %v", filename)
 	}
 
-	err = yaml.Unmarshal(hostsFile, &h.Hosts)
+	var hosts map[string]string
+	err = yaml.Unmarshal(hostsFile, &hosts)
 	if err != nil {
-		return errors.Wrapf(err, "can't read the alerts file- %v", filename)
+		return nil, errors.Wrapf(err, "can't read the alerts file- %v", filename)
 	}
 
-	return nil
+	return hosts, nil
 }

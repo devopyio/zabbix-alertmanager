@@ -2,14 +2,18 @@ package zabbixsvc
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsnd"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type ZabbixSenderRequest struct {
@@ -41,8 +45,23 @@ type JSONHandler struct {
 	Sender      *zabbixsnd.Sender
 	KeyPrefix   string
 	DefaultHost string
-	//TODO: Introduce annotation to host mapping?
+	Hosts       map[string]string
 }
+
+var alertsSentStats = promauto.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "alerts_sent",
+		Help: "Current number of sent alerts by status",
+	},
+	[]string{"alert_status"},
+)
+
+var alertsErrorsTotal = promauto.NewGauge(
+	prometheus.GaugeOpts{
+		Name: "alerts_errors_total",
+		Help: "Current number of different errors",
+	},
+)
 
 func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
@@ -51,12 +70,16 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	var req ZabbixSenderRequest
 
 	if err := dec.Decode(&req); err != nil {
+		alertsErrorsTotal.Inc()
+
 		log.Errorf("error decoding message: %v", err)
 		http.Error(w, "request body is not valid json", http.StatusBadRequest)
 		return
 	}
 
 	if req.Status == "" || req.CommonLabels["alertname"] == "" {
+		alertsErrorsTotal.Inc()
+
 		http.Error(w, "missing fields in request body", http.StatusBadRequest)
 		return
 	}
@@ -66,10 +89,19 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		value = "1"
 	}
 
+	if req.Status == "resolved" {
+		alertsSentStats.WithLabelValues("resolved").Inc()
+	} else {
+		alertsSentStats.WithLabelValues("unresolved").Inc()
+	}
+
+	host, ok := h.Hosts[req.Receiver]
+	if !ok {
+		host = h.DefaultHost
+	}
+
 	var metrics []*zabbixsnd.Metric
 	for _, alert := range req.Alerts {
-		host := h.DefaultHost
-
 		key := fmt.Sprintf("%s.%s", h.KeyPrefix, strings.ToLower(alert.Labels["alertname"]))
 		m := &zabbixsnd.Metric{Host: host, Key: key, Value: value}
 
@@ -82,10 +114,12 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.zabbixSend(metrics)
 	if err != nil {
+		alertsErrorsTotal.Inc()
 		log.Errorf("failed to send to server: %s", err)
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
+	} else {
+		log.Debugf("request succesfully sent: %s", res)
 	}
-	log.Debugf("request succesfully sent: %s", res)
 }
 
 func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, error) {
@@ -101,11 +135,27 @@ func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, 
 	if err := json.Unmarshal(res[13:], &zres); err != nil {
 		return nil, err
 	}
-
 	infoSplit := strings.Split(zres.Info, " ")
-	if strings.Trim(infoSplit[3], ";") != "0" || zres.Response != "success" {
-		return nil, errors.New("failed to fulfill the requests: " + strings.Trim(infoSplit[5], ";"))
+
+	failed := strings.Trim(infoSplit[3], ";")
+	if failed != "0" || zres.Response != "success" {
+		return nil, errors.Errorf("failed to fulfill the requests: %v", failed)
 	}
 
 	return &zres, nil
+}
+
+func (h *JSONHandler) LoadHostsFromFile(filename string) (map[string]string, error) {
+	hostsFile, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't open the alerts file- %v", filename)
+	}
+
+	var hosts map[string]string
+	err = yaml.Unmarshal(hostsFile, &hosts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't read the alerts file- %v", filename)
+	}
+
+	return hosts, nil
 }

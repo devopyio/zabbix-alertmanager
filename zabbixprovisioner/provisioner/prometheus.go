@@ -34,14 +34,14 @@ func LoadPrometheusRulesFromDir(dir string) ([]PrometheusRule, error) {
 		if strings.HasSuffix(file.Name(), ".yml") || strings.HasSuffix(file.Name(), ".yaml") {
 			alertsFile, err := ioutil.ReadFile(filepath.Join(dir, file.Name()))
 			if err != nil {
-				return nil, errors.Wrapf(err, "can't open the alerts file-", file.Name())
+				return nil, errors.Wrapf(err, "can't open the alerts file: %s", file.Name())
 			}
 
 			ruleConfig := PrometheusAlertRules{}
 
 			err = yaml.Unmarshal(alertsFile, &ruleConfig)
 			if err != nil {
-				return nil, errors.Wrapf(err, "can't read the alerts file-", file.Name())
+				return nil, errors.Wrapf(err, "can't read the alerts file: %s", file.Name())
 			}
 			for _, rule := range ruleConfig.Groups {
 				for _, alert := range rule.Rules {

@@ -26,9 +26,9 @@ func main() {
 	send := app.Command("send", "Start zabbix sender.")
 	senderAddr := send.Flag("addr", "Server address which will receive alerts from alertmanager.").Default("0.0.0.0:9095").String()
 	zabbixAddr := send.Flag("zabbix-addr", "Zabbix address.").Envar("ZABBIX_URL").Required().String()
-       defaultHostsFile := send.Arg("hosts-path", "Path to the default hosts file.").Required().String()
+	hostsFile := send.Flag("hosts-path", "Path to resolver to host mapping file.").String()
 	keyPrefix := send.Flag("key-prefix", "Prefix to add to the trapper item key").Default("prometheus").String()
-	defaultHost := send.Flag("default-host", "default host-name").Default("prometheus").String()
+	defaultHost := send.Flag("default-host", "default host to send alerts to").Default("prometheus").String()
 
 	prov := app.Command("prov", "Start zabbix provisioner.")
 	provConfig := prov.Flag("config-path", "Path to provisioner hosts config file.").Required().String()
@@ -72,17 +72,21 @@ func main() {
 			log.Fatalf("error could not create zabbix sender: %v", err)
 		}
 
+		hosts := make(map[string]string)
+
+		if hostsFile != nil && *hostsFile != "" {
+			hosts, err = zabbixsvc.LoadHostsFromFile(*hostsFile)
+			if err != nil {
+				log.Errorf("cant load the default hosts file: %v", err)
+			}
+		}
+
 		h := &zabbixsvc.JSONHandler{
 			Sender:      s,
 			KeyPrefix:   *keyPrefix,
 			DefaultHost: *defaultHost,
+			Hosts:       hosts,
 		}
-
-		hosts, err := h.LoadHostsFromFile(*defaultHostsFile)
-		if err != nil {
-			log.Errorf("cant load the default hosts file: %v", err)
-		}
-		h.Hosts = hosts
 
 		http.Handle("/metrics", promhttp.Handler())
 		http.HandleFunc("/alerts", h.HandlePost)

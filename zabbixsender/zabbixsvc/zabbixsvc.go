@@ -145,7 +145,7 @@ func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, 
 	return &zres, nil
 }
 
-func (h *JSONHandler) LoadHostsFromFile(filename string) (map[string]string, error) {
+func LoadHostsFromFile(filename string) (map[string]string, error) {
 	hostsFile, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't open the alerts file- %v", filename)

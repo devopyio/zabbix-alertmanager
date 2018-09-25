@@ -11,3 +11,5 @@
   itemDefaultHistory: 5d
   itemDefaultTrends: 5d
   itemDefaultTrapperHosts: # Hosts permitted to send data (your webhook external CIDR, default is from everywhere)
+  # Path to the alerts containing folder
+  alertsDir: ./kubernetes-alerts/infra

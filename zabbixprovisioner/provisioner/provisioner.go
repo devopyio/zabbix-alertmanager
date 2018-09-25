@@ -22,18 +22,18 @@ type HostConfig struct {
 	ItemDefaultHistory      string   `yaml:"itemDefaultHistory"`
 	ItemDefaultTrends       string   `yaml:"itemDefaultTrends"`
 	ItemDefaultTrapperHosts string   `yaml:"itemDefaultTrapperHosts"`
+	HostAlertsDir           string   `yaml:"alertsDir"`
 }
 
 type Provisioner struct {
-	api                 *zabbix.API
-	keyPrefix           string
-	prometheusAlertPath string
-	hosts               []HostConfig
-	prometheusUrl       string
+	api           *zabbix.API
+	keyPrefix     string
+	hosts         []HostConfig
+	prometheusUrl string
 	*CustomZabbix
 }
 
-func New(prometheusAlertPath, prometheusUrl, keyPrefix, url, user, password string, hosts []HostConfig) (*Provisioner, error) {
+func New(prometheusUrl, keyPrefix, url, user, password string, hosts []HostConfig) (*Provisioner, error) {
 	transport := http.DefaultTransport
 
 	api := zabbix.NewAPI(url)
@@ -47,11 +47,10 @@ func New(prometheusAlertPath, prometheusUrl, keyPrefix, url, user, password stri
 	}
 
 	return &Provisioner{
-		api:                 api,
-		keyPrefix:           keyPrefix,
-		prometheusAlertPath: prometheusAlertPath,
-		hosts:               hosts,
-		prometheusUrl:       prometheusUrl,
+		api:           api,
+		keyPrefix:     keyPrefix,
+		hosts:         hosts,
+		prometheusUrl: prometheusUrl,
 	}, nil
 }
 
@@ -77,8 +76,11 @@ func (p *Provisioner) Run() error {
 		HostGroups: map[string]*CustomHostGroup{},
 	}
 
-	if err := p.LoadRulesFromPrometheus(p.prometheusAlertPath); err != nil {
-		return errors.Wrapf(err, "error loading prometheus rules, file: %s", p.prometheusAlertPath)
+	//All hosts will have the rules which were only written for them
+	for _, host := range p.hosts {
+		if err := p.LoadRulesFromPrometheus(host); err != nil {
+			return errors.Wrapf(err, "error loading prometheus rules, file: %s", host.HostAlertsDir)
+		}
 	}
 
 	if err := p.LoadDataFromZabbix(); err != nil {
@@ -93,131 +95,129 @@ func (p *Provisioner) Run() error {
 }
 
 // Create hosts structures and populate them from Prometheus rules
-func (p *Provisioner) LoadRulesFromPrometheus(dir string) error {
-	rules, err := LoadPrometheusRulesFromDir(dir)
+func (p *Provisioner) LoadRulesFromPrometheus(hostConfig HostConfig) error {
+	rules, err := LoadPrometheusRulesFromDir(hostConfig.HostAlertsDir)
 	if err != nil {
 		return errors.Wrap(err, "error loading rules")
 	}
 
-	log.Infof("Prometheus Rules loaded: %v", len(rules))
+	log.Infof("Prometheus Rules for host - %v loaded: %v", hostConfig.Name, len(rules))
 
-	for _, hostConfig := range p.hosts {
-		newHost := &CustomHost{
-			State: StateNew,
-			Host: zabbix.Host{
-				Host:          hostConfig.Name,
-				Available:     1,
-				Name:          hostConfig.Name,
-				Status:        0,
-				InventoryMode: zabbix.InventoryManual,
-				Inventory: map[string]string{
-					"deployment_status": hostConfig.DeploymentStatus,
-					"tag":               hostConfig.Tag,
-				},
-				Interfaces: zabbix.HostInterfaces{
-					zabbix.HostInterface{
-						DNS:   "",
-						IP:    "127.0.0.1",
-						Main:  1,
-						Port:  "10050",
-						Type:  1,
-						UseIP: 1,
-					},
+	newHost := &CustomHost{
+		State: StateNew,
+		Host: zabbix.Host{
+			Host:          hostConfig.Name,
+			Available:     1,
+			Name:          hostConfig.Name,
+			Status:        0,
+			InventoryMode: zabbix.InventoryManual,
+			Inventory: map[string]string{
+				"deployment_status": hostConfig.DeploymentStatus,
+				"tag":               hostConfig.Tag,
+			},
+			Interfaces: zabbix.HostInterfaces{
+				zabbix.HostInterface{
+					DNS:   "",
+					IP:    "127.0.0.1",
+					Main:  1,
+					Port:  "10050",
+					Type:  1,
+					UseIP: 1,
 				},
 			},
-			HostGroups:   make(map[string]struct{}, len(hostConfig.HostGroups)),
-			Items:        map[string]*CustomItem{},
-			Applications: map[string]*CustomApplication{},
-			Triggers:     map[string]*CustomTrigger{},
+		},
+		HostGroups:   make(map[string]struct{}, len(hostConfig.HostGroups)),
+		Items:        map[string]*CustomItem{},
+		Applications: map[string]*CustomApplication{},
+		Triggers:     map[string]*CustomTrigger{},
+	}
+
+	for _, hostGroupName := range hostConfig.HostGroups {
+		p.AddHostGroup(&CustomHostGroup{
+			State: StateNew,
+			HostGroup: zabbix.HostGroup{
+				Name: hostGroupName,
+			},
+		})
+
+		newHost.HostGroups[hostGroupName] = struct{}{}
+	}
+
+	// Parse Prometheus rules and create corresponding items/triggers and applications for this host
+	for _, rule := range rules {
+		key := fmt.Sprintf("%s.%s", strings.ToLower(p.keyPrefix), strings.ToLower(rule.Name))
+
+		newItem := &CustomItem{
+			State: StateNew,
+			Item: zabbix.Item{
+				Name:         rule.Name,
+				Key:          key,
+				HostId:       "", //To be filled when the host will be created
+				Type:         2,  //Trapper
+				ValueType:    3,
+				History:      hostConfig.ItemDefaultHistory,
+				Trends:       hostConfig.ItemDefaultTrends,
+				TrapperHosts: hostConfig.ItemDefaultTrapperHosts,
+			},
+			Applications: map[string]struct{}{},
 		}
 
-		for _, hostGroupName := range hostConfig.HostGroups {
-			p.AddHostGroup(&CustomHostGroup{
+		newTrigger := &CustomTrigger{
+			State: StateNew,
+			Trigger: zabbix.Trigger{
+				Description: rule.Name,
+				Expression:  fmt.Sprintf("{%s:%s.last()}<>0", newHost.Name, key),
+				ManualClose: 1,
+			},
+		}
+
+		if p.prometheusUrl != "" {
+			newTrigger.URL = p.prometheusUrl + "/alerts"
+
+			url := p.prometheusUrl + "/graph?g0.expr=" + url.QueryEscape(rule.Expression)
+			if len(url) < 255 {
+				newTrigger.URL = url
+			}
+		}
+
+		if v, ok := rule.Annotations["summary"]; ok {
+			newTrigger.Comments = v
+		} else if v, ok := rule.Annotations["message"]; ok {
+			newTrigger.Comments = v
+		} else if v, ok := rule.Annotations["description"]; ok {
+			newTrigger.Comments = v
+		}
+
+		if v, ok := rule.Labels["severity"]; ok {
+			newTrigger.Priority = GetZabbixPriority(v)
+		}
+
+		// Add the special "No Data" trigger if requested
+		if delay, ok := rule.Annotations["zabbix_trigger_nodata"]; ok {
+			newTrigger.Trigger.Description = fmt.Sprintf("%s - no data for the last %s seconds", newTrigger.Trigger.Description, delay)
+			newTrigger.Trigger.Expression = fmt.Sprintf("{%s:%s.nodata(%s)}", newHost.Name, key, delay)
+		}
+
+		// If no applications are found in the rule, add the default application declared in the configuration
+		if len(newItem.Applications) == 0 {
+			newHost.AddApplication(&CustomApplication{
 				State: StateNew,
-				HostGroup: zabbix.HostGroup{
-					Name: hostGroupName,
+				Application: zabbix.Application{
+					Name: hostConfig.ItemDefaultApplication,
 				},
 			})
-
-			newHost.HostGroups[hostGroupName] = struct{}{}
+			newItem.Applications[hostConfig.ItemDefaultApplication] = struct{}{}
 		}
 
-		// Parse Prometheus rules and create corresponding items/triggers and applications for this host
-		for _, rule := range rules {
-			key := fmt.Sprintf("%s.%s", strings.ToLower(p.keyPrefix), strings.ToLower(rule.Name))
+		log.Debugf("Loading item from Prometheus: %+v", newItem)
+		newHost.AddItem(newItem)
 
-			newItem := &CustomItem{
-				State: StateNew,
-				Item: zabbix.Item{
-					Name:         rule.Name,
-					Key:          key,
-					HostId:       "", //To be filled when the host will be created
-					Type:         2,  //Trapper
-					ValueType:    3,
-					History:      hostConfig.ItemDefaultHistory,
-					Trends:       hostConfig.ItemDefaultTrends,
-					TrapperHosts: hostConfig.ItemDefaultTrapperHosts,
-				},
-				Applications: map[string]struct{}{},
-			}
+		log.Debugf("Loading trigger from Prometheus: %+v", newTrigger)
+		newHost.AddTrigger(newTrigger)
 
-			newTrigger := &CustomTrigger{
-				State: StateNew,
-				Trigger: zabbix.Trigger{
-					Description: rule.Name,
-					Expression:  fmt.Sprintf("{%s:%s.last()}<>0", newHost.Name, key),
-					ManualClose: 1,
-				},
-			}
-
-			if p.prometheusUrl != "" {
-				newTrigger.URL = p.prometheusUrl + "/alerts"
-
-				url := p.prometheusUrl + "/graph?g0.expr=" + url.QueryEscape(rule.Expression)
-				if len(url) < 255 {
-					newTrigger.URL = url
-				}
-			}
-
-			if v, ok := rule.Annotations["summary"]; ok {
-				newTrigger.Comments = v
-			} else if v, ok := rule.Annotations["message"]; ok {
-				newTrigger.Comments = v
-			} else if v, ok := rule.Annotations["description"]; ok {
-				newTrigger.Comments = v
-			}
-
-			if v, ok := rule.Labels["severity"]; ok {
-				newTrigger.Priority = GetZabbixPriority(v)
-			}
-
-			// Add the special "No Data" trigger if requested
-			if delay, ok := rule.Annotations["zabbix_trigger_nodata"]; ok {
-				newTrigger.Trigger.Description = fmt.Sprintf("%s - no data for the last %s seconds", newTrigger.Trigger.Description, delay)
-				newTrigger.Trigger.Expression = fmt.Sprintf("{%s:%s.nodata(%s)}", newHost.Name, key, delay)
-			}
-
-			// If no applications are found in the rule, add the default application declared in the configuration
-			if len(newItem.Applications) == 0 {
-				newHost.AddApplication(&CustomApplication{
-					State: StateNew,
-					Application: zabbix.Application{
-						Name: hostConfig.ItemDefaultApplication,
-					},
-				})
-				newItem.Applications[hostConfig.ItemDefaultApplication] = struct{}{}
-			}
-
-			log.Debugf("Loading item from Prometheus: %+v", newItem)
-			newHost.AddItem(newItem)
-
-			log.Debugf("Loading trigger from Prometheus: %+v", newTrigger)
-			newHost.AddTrigger(newTrigger)
-
-		}
-		log.Debugf("Host from Prometheus: %+v", newHost)
-		p.AddHost(newHost)
 	}
+	log.Debugf("Host from Prometheus: %+v", newHost)
+	p.AddHost(newHost)
 
 	return nil
 }

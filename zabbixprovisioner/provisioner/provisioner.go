@@ -14,15 +14,16 @@ import (
 )
 
 type HostConfig struct {
-	Name                    string   `yaml:"name"`
-	HostGroups              []string `yaml:"hostGroups"`
-	Tag                     string   `yaml:"tag"`
-	DeploymentStatus        string   `yaml:"deploymentStatus"`
-	ItemDefaultApplication  string   `yaml:"itemDefaultApplication"`
-	ItemDefaultHistory      string   `yaml:"itemDefaultHistory"`
-	ItemDefaultTrends       string   `yaml:"itemDefaultTrends"`
-	ItemDefaultTrapperHosts string   `yaml:"itemDefaultTrapperHosts"`
-	HostAlertsDir           string   `yaml:"alertsDir"`
+	Name                    string            `yaml:"name"`
+	HostGroups              []string          `yaml:"hostGroups"`
+	Tag                     string            `yaml:"tag"`
+	DeploymentStatus        string            `yaml:"deploymentStatus"`
+	ItemDefaultApplication  string            `yaml:"itemDefaultApplication"`
+	ItemDefaultHistory      string            `yaml:"itemDefaultHistory"`
+	ItemDefaultTrends       string            `yaml:"itemDefaultTrends"`
+	ItemDefaultTrapperHosts string            `yaml:"itemDefaultTrapperHosts"`
+	HostAlertsDir           string            `yaml:"alertsDir"`
+	TriggerTags             map[string]string `yaml:"triggerTags"`
 }
 
 type Provisioner struct {
@@ -147,6 +148,11 @@ func (p *Provisioner) LoadRulesFromPrometheus(hostConfig HostConfig) error {
 	for _, rule := range rules {
 		key := fmt.Sprintf("%s.%s", strings.ToLower(p.keyPrefix), strings.ToLower(rule.Name))
 
+		var triggerTags []zabbix.Tag
+		for k, v := range hostConfig.TriggerTags {
+			triggerTags = append(triggerTags, zabbix.Tag{Tag: k, Value: v})
+		}
+
 		newItem := &CustomItem{
 			State: StateNew,
 			Item: zabbix.Item{
@@ -168,6 +174,7 @@ func (p *Provisioner) LoadRulesFromPrometheus(hostConfig HostConfig) error {
 				Description: rule.Name,
 				Expression:  fmt.Sprintf("{%s:%s.last()}<>0", newHost.Name, key),
 				ManualClose: 1,
+				Tags:        triggerTags,
 			},
 		}
 

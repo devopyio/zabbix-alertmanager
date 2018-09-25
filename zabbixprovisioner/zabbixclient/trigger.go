@@ -34,8 +34,13 @@ type Trigger struct {
 	Value       ValueType    `json:""`
 	Priority    PriorityType `json:"priority"`
 	Status      StatusType   `json:"status"`
+	Tags        []Tag        `json:"tags"`
 }
 
+type Tag struct {
+	Tag   string `json:"tag"`
+	Value string `json:"value"`
+}
 type Triggers []Trigger
 
 // Wrapper for item.get https://www.zabbix.com/documentation/2.2/manual/appendix/api/item/get

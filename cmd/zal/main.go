@@ -32,7 +32,6 @@ func main() {
 
 	prov := app.Command("prov", "Start zabbix provisioner.")
 	provConfig := prov.Flag("config-path", "Path to provisioner hosts config file.").Required().String()
-	provAlerts := prov.Flag("alert-path", "Path to the prometheus alerts files.").Required().String()
 	provUser := prov.Flag("user", "Zabbix json rpc user.").Envar("ZABBIX_USER").Required().String()
 	provPassword := prov.Flag("password", "Zabbix json rpc password.").Envar("ZABBIX_PASSWORD").Required().String()
 	provURL := prov.Flag("url", "Zabbix json rpc url.").Envar("ZABBIX_URL").Default("http://127.0.0.1/zabbix/api_jsonrpc.php").String()
@@ -103,7 +102,7 @@ func main() {
 		}
 		log.Infof("loaded hosts configuration from '%s'", *provConfig)
 
-		prov, err := provisioner.New(*provAlerts, *prometheusURL, *provKeyPrefix, *provURL, *provUser, *provPassword, cfg)
+		prov, err := provisioner.New(*prometheusURL, *provKeyPrefix, *provURL, *provUser, *provPassword, cfg)
 		if err != nil {
 			log.Fatalf("error failed to create provisioner: %s", err)
 		}

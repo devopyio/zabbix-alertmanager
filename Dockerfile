@@ -1,14 +1,9 @@
 FROM alpine:latest
 
-RUN adduser sender -s /bin/false -D sender
+RUN adduser zal -s /bin/false -D zal
 
-RUN mkdir -p /etc/sender
-COPY config.yaml /etc/sender
+COPY zal /usr/bin
 
-COPY alertmanager-zabbix  /usr/bin
-RUN chmod +x /usr/bin/alertmanager-zabbix
+USER zal
 
-EXPOSE 8080
-USER sender
-
-ENTRYPOINT ["/usr/bin/alertmanager-zabbix"]
+ENTRYPOINT ["/usr/bin/zal"]

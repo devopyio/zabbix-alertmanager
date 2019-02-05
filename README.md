@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/devopyio/zabbix-alertmanager.svg?branch=master)
+![Build Status](https://travis-ci.com/devopyio/zabbix-alertmanager.svg?branch=master)
 
 # zabbix-alertmanager
 

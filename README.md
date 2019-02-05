@@ -1,4 +1,7 @@
+[![Build Status](https://travis-ci.com/devopyio/zabbix-alertmanager.svg?branch=master)
+
 # zabbix-alertmanager
+
 Fully automated [Zabbix](https://www.zabbix.com/) and [Prometheus Alertmanager](https://prometheus.io/docs/alerting/alertmanager/) integration
 
  Project consists of 2 parts:

@@ -2,4 +2,7 @@ language: go
 
 go:
   - "1.x"
-  - master
+env:
+  global:
+    - GO111MODULE: "on"
+

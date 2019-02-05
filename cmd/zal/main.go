@@ -12,15 +12,21 @@ import (
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsnd"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsvc"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/version"
+	ver "github.com/prometheus/common/version"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/alecthomas/kingpin.v2"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
+)
+
+var (
+	version string
 )
 
 func main() {
+	ver.Version = version
+
 	app := kingpin.New("zal", "A zabbix and prometheus integration.")
 
-	app.Version(version.Print("zal"))
+	app.Version(ver.Print("zal"))
 	app.HelpFlag.Short('h')
 
 	send := app.Command("send", "Start zabbix sender.")

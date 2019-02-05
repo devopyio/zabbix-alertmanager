@@ -5,7 +5,7 @@ go:
   - master
 env:
   global:
-    - GO111MODULE: on
+    - GO111MODULE: "on"
 
 jobs:
   include:

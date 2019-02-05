@@ -3,3 +3,16 @@ language: go
 go:
   - "1.x"
   - master
+env:
+  global:
+    - GO111MODULE: on
+
+jobs:
+  include:
+    - stage: build docker image
+      script:
+      - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      - docker build -t zabbix-alertmanager
+      - docker images
+      - docker tag zabbix-alertmanager $DOCKER_USERNAME/zabbix-alertmanager:$TRAVIS_PULL_REQUEST_SHA
+      - docker push $DOCKER_USERNAME/zabbix-alertmanager

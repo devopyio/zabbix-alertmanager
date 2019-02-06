@@ -6,6 +6,7 @@ ADD . /go/src/github.com/devopyio/zabbix-alertmanager
 
 WORKDIR /go/src/github.com/devopyio/zabbix-alertmanager
 
+ENV GO111MODULE on
 RUN make go-deps
 RUN make go-build
 

@@ -3,7 +3,7 @@ DATE := $(shell date +%FT%T%z)
 USER := $(shell whoami)
 BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GO111MODULE := on
-all: go-deps go-test go-build
+all: go-deps go-test go-build docker-push
 
 go-deps:
 	go mod download
@@ -21,6 +21,6 @@ docker-build:
 docker-login:
 	docker login -u $(DOCKER_USERNAME) -p $(DOCKER_PASSWORD)
 
-docker-push:
+docker-push: docker-build docker-login
 	docker tag zabbix-alertmanager $(DOCKER_USERNAME)/zabbix-alertmanager:$(GIT_HASH)
 	docker push $(DOCKER_USERNAME)/zabbix-alertmanager:$(GIT_HASH)

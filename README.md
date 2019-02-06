@@ -1,5 +1,7 @@
 ![Build Status](https://travis-ci.com/devopyio/zabbix-alertmanager.svg?branch=master)
 [![DepShield Badge](https://depshield.sonatype.org/badges/devopyio/zabbix-alertmanager/depshield.svg)](https://depshield.github.io)
+![Go Report Card](https://goreportcard.com/badge/github.com/devopyio/zabbix-alertmanager)
+
 # zabbix-alertmanager
 
 Fully automated [Zabbix](https://www.zabbix.com/) and [Prometheus Alertmanager](https://prometheus.io/docs/alerting/alertmanager/) integration

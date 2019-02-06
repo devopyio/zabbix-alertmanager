@@ -2,7 +2,8 @@ GIT_HASH := $(shell git rev-parse HEAD)
 DATE := $(shell date +%FT%T%z)
 USER := $(shell whoami)
 BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
-all: go-deps go-build docker-build docker-login docker-push
+GO111MODULE := on
+all: go-deps go-build docker-build
 
 go-deps:
 	go mod download

@@ -1,4 +1,6 @@
-![zabbix-alertmanager](https://devopy.io/wp-content/uploads/2019/01/zal-300x300.png)
+![zabbix-alertmanager](http://devopy.io/wp-content/uploads/2019/02/zal-200.png)
+
+
 ![Build Status](https://travis-ci.com/devopyio/zabbix-alertmanager.svg?branch=master)
 ![Go Report Card](https://goreportcard.com/badge/github.com/devopyio/zabbix-alertmanager)
 

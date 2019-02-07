@@ -1,11 +1,13 @@
-![Build Status](https://travis-ci.com/devopyio/zabbix-alertmanager.svg?branch=master)
-![Go Report Card](https://goreportcard.com/badge/github.com/devopyio/zabbix-alertmanager)
-
 ![zabbix-alertmanager](http://devopy.io/wp-content/uploads/2019/02/zal-200.png)
 
 # zabbix-alertmanager
 
-Fully automated [Zabbix](https://www.zabbix.com/) and [Prometheus Alertmanager](https://prometheus.io/docs/alerting/alertmanager/) integration
+![Build Status](https://travis-ci.com/devopyio/zabbix-alertmanager.svg?branch=master)
+![Go Report Card](https://goreportcard.com/badge/github.com/devopyio/zabbix-alertmanager)
+
+Fully automated [Zabbix](https://www.zabbix.com/) and [Prometheus Alertmanager](https://prometheus.io/docs/alerting/alertmanager/) integration. 
+
+(Read more](https://devopy.io/zabbix-alertmanager-integration/)
 
  Project consists of 2 parts:
 ## 1. zal send

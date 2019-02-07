@@ -7,7 +7,7 @@
 
 Fully automated [Zabbix](https://www.zabbix.com/) and [Prometheus Alertmanager](https://prometheus.io/docs/alerting/alertmanager/) integration. 
 
-(Read more](https://devopy.io/zabbix-alertmanager-integration/)
+[More information is availbe in blogpost](https://devopy.io/zabbix-alertmanager-integration/)
 
  Project consists of 2 parts:
 ## 1. zal send

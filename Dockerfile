@@ -9,7 +9,7 @@ WORKDIR /go/src/github.com/devopyio/zabbix-alertmanager
 ENV GO111MODULE on
 RUN make go-deps
 RUN make go-build
-
+RUN chmod o+x zal
 RUN mv zal /zal
 
 FROM alpine:latest

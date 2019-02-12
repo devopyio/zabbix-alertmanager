@@ -9,7 +9,6 @@ WORKDIR /go/src/github.com/devopyio/zabbix-alertmanager
 ENV GO111MODULE on
 RUN make go-deps
 RUN make go-build
-RUN chmod o+x zal
 RUN mv zal /zal
 
 FROM alpine:latest
@@ -18,7 +17,7 @@ RUN apk add --no-cache ca-certificates && mkdir /app
 RUN adduser zal -s /bin/false -D zal
 
 COPY --from=build /zal /usr/bin
-
+RUN chown zal /usr/bin/zal
 USER zal
 ENTRYPOINT ["/usr/bin/zal"]
 

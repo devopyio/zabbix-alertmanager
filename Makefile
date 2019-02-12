@@ -1,6 +1,6 @@
-GIT_HASH := $(shell git rev-parse HEAD)
 DATE := $(shell date +%FT%T%z)
 USER := $(shell whoami)
+GIT_HASH := $(shell git --no-pager describe --tags --always)
 BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GO111MODULE := on
 all: go-deps go-test go-build docker-push

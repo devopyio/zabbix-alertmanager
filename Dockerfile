@@ -17,8 +17,7 @@ RUN apk add --no-cache ca-certificates && mkdir /app
 RUN adduser zal -s /bin/false -D zal
 
 COPY --from=build /zal /usr/bin
-RUN chown zal /usr/bin/zal
+RUN chown -R zal /usr/bin/zal
+
 USER zal
 ENTRYPOINT ["/usr/bin/zal"]
-
-ENTRYPOINT exec /app/${APP}

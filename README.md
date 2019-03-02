@@ -4,6 +4,7 @@
 
 ![Build Status](https://travis-ci.com/devopyio/zabbix-alertmanager.svg?branch=master)
 ![Go Report Card](https://goreportcard.com/badge/github.com/devopyio/zabbix-alertmanager)
+[![Docker Repository on Quay](https://quay.io/repository/devopyio/zabbix-alertmanager/status "Docker Repository on Quay")](https://quay.io/repository/devopyio/zabbix-alertmanager)
 
 Fully automated [Zabbix](https://www.zabbix.com/) and [Prometheus Alertmanager](https://prometheus.io/docs/alerting/alertmanager/) integration. 
 

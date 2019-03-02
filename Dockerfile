@@ -14,7 +14,7 @@ RUN mv zal /zal
 FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates && mkdir /app
-RUN adduser zal -s /bin/false -D zal
+RUN adduser zal -u 1001 -g 1001 -s /bin/false -D zal
 
 COPY --from=build /zal /usr/bin
 RUN chown -R zal /usr/bin/zal

@@ -11,6 +11,7 @@ import (
 	"github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/provisioner"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsnd"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsvc"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	ver "github.com/prometheus/common/version"
 	log "github.com/sirupsen/logrus"
@@ -74,6 +75,8 @@ func main() {
 		log.SetFormatter(&log.TextFormatter{DisableColors: true})
 	}
 	log.SetOutput(os.Stdout)
+
+	prometheus.MustRegister(ver.NewCollector(send.FullCommand()))
 
 	switch cmd {
 	case send.FullCommand():

@@ -11,24 +11,14 @@ import (
 	"github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/provisioner"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsnd"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsvc"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	ver "github.com/prometheus/common/version"
 	log "github.com/sirupsen/logrus"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
-var (
-	//version variable populated on build time
-	version, revision, branch, user, date string
-)
-
 func main() {
-	ver.Version = version
-	ver.Revision = revision
-	ver.Branch = branch
-	ver.BuildUser = user
-	ver.BuildDate = date
-
 	app := kingpin.New("zal", "A zabbix and prometheus integration.")
 
 	app.Version(ver.Print("zal"))
@@ -74,6 +64,8 @@ func main() {
 		log.SetFormatter(&log.TextFormatter{DisableColors: true})
 	}
 	log.SetOutput(os.Stdout)
+
+	prometheus.MustRegister(ver.NewCollector(send.FullCommand()))
 
 	switch cmd {
 	case send.FullCommand():

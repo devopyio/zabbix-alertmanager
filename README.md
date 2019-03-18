@@ -10,10 +10,13 @@ Fully automated [Zabbix](https://www.zabbix.com/) and [Prometheus Alertmanager](
 
 [More information is available in this blogpost](https://devopy.io/zabbix-alertmanager-integration/)
 
- Project consists of 2 parts:
+Project consists of 2 parts:
+
 ## 1. zal send
 Sender catches the alerts from [Prometheus Alertmanager](https://prometheus.io/docs/alerting/alertmanager/) and pushes them to the [Zabbix](https://www.zabbix.com/) server by using trapper items.
- ## 2. zal prov
+
+## 2. zal prov
+
 The provisioner will load the current [Prometheus Alerting rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) from a directory and will create hostgroup/host/application/items/triggers in [Zabbix](https://www.zabbix.com/) if needed. 
  # Howto
 First of all you need to launch the zal prov which will create all the required items on [Zabbix](https://www.zabbix.com/) server and you will be able to

@@ -18,18 +18,7 @@ import (
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
-var (
-	//version variable populated on build time
-	version, revision, branch, user, date string
-)
-
 func main() {
-	ver.Version = version
-	ver.Revision = revision
-	ver.Branch = branch
-	ver.BuildUser = user
-	ver.BuildDate = date
-
 	app := kingpin.New("zal", "A zabbix and prometheus integration.")
 
 	app.Version(ver.Print("zal"))

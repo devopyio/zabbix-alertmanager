@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zal
+  labels:
+    name: zal
+  annotations:
+    prometheus.io/path: /metrics
+    prometheus.io/scrape: "true"
+spec:
+  ports:
+  - port: 9095
+    protocol: TCP
+    targetPort: 9095
+  selector:
+    k8s-app: zal
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zal
+  namespace: sys-mon
+data:
+  sender-config.yml: |-
+    # Resolver name to zabbix host mapping
+    # web is Alertmanager's resolver name
+    # and the mapping is Zabbix host name.
+    infra: infra
+    web: webteam
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    k8s-app: zal
+  name: zal
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      k8s-app: zal
+  template:
+    metadata:
+      labels:
+        name: zal
+        k8s-app: zal
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: k8s-app
+                  operator: In
+                  values:
+                  - zal
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - name: zal
+        image: quay.io/devopyio/zabbix-alertmanager:v1.1.5
+        args:
+        - send
+        - --log.level=info
+        - --zabbix-addr=ZABBIX_ADDR:10051
+        - --default-host=infra
+        - --hosts-path=/etc/zal/sender-config.yml
+        ports:
+        - containerPort: 9095
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/zal
+      volumes:
+        - name: config-volume
+          configMap:
+            name: zal
+

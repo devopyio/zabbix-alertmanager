@@ -59,7 +59,7 @@ spec:
             weight: 100
       containers:
       - name: zal
-        image: quay.io/devopyio/zabbix-alertmanager:v1.1.5
+        image: quay.io/devopyio/zabbix-alertmanager:v1.2.0
         args:
         - send
         - --log.level=info

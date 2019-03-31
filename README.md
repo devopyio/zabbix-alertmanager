@@ -21,9 +21,9 @@ Fully automated [Zabbix](https://www.zabbix.com/) and [Prometheus Alertmanager](
 
 Checkout [kubernetes-manifests.yaml](https://github.com/devopyio/zabbix-alertmanager/blob/master/kubernetes-manifest.yaml) for deployment in Kubernetes. 
 
-Releases page for binaries [Releases](https://github.com/devopyio/zabbix-alertmanager/releases).
+[Releases](https://github.com/devopyio/zabbix-alertmanager/releases) page for binaries.
 
-Grafana dashboard is available in [grafana.json](https://github.com/devopyio/zabbix-alertmanager/blob/master/grafana.json).
+[grafana.json](https://github.com/devopyio/zabbix-alertmanager/blob/master/grafana.json) for Grafana dashboard.
 
 ## General Info
 

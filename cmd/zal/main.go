@@ -66,8 +66,8 @@ func main() {
 	}
 	log.SetOutput(os.Stdout)
 
-	prometheus.MustRegister(ver.NewCollector(send.FullCommand()))
-	prometheus.MustRegister(prommod.NewCollector(send.FullCommand()))
+	prometheus.MustRegister(ver.NewCollector("zal"))
+	prometheus.MustRegister(prommod.NewCollector("zal"))
 	switch cmd {
 	case send.FullCommand():
 		s, err := zabbixsnd.New(*zabbixAddr)

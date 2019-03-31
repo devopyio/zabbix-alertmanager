@@ -48,19 +48,22 @@ type JSONHandler struct {
 	Hosts       map[string]string
 }
 
-var alertsSentStats = promauto.NewGaugeVec(
-	prometheus.GaugeOpts{
-		Name: "alerts_sent",
-		Help: "Current number of sent alerts by status",
-	},
-	[]string{"alert_status"},
-)
+var (
+	alertsSentStats = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "alerts_sent_total",
+			Help: "Current number of sent alerts by status",
+		},
+		[]string{"alert_status", "host"},
+	)
 
-var alertsErrorsTotal = promauto.NewGauge(
-	prometheus.GaugeOpts{
-		Name: "alerts_errors_total",
-		Help: "Current number of different errors",
-	},
+	alertsErrorsTotal = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "alerts_errors_total",
+			Help: "Current number of different errors",
+		},
+		[]string{"alert_status", "host"},
+	)
 )
 
 func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
@@ -68,9 +71,8 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var req ZabbixSenderRequest
-
 	if err := dec.Decode(&req); err != nil {
-		alertsErrorsTotal.Inc()
+		alertsErrorsTotal.WithLabelValues("", "").Inc()
 
 		log.Errorf("error decoding message: %v", err)
 		http.Error(w, "request body is not valid json", http.StatusBadRequest)
@@ -78,8 +80,7 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Status == "" || req.CommonLabels["alertname"] == "" {
-		alertsErrorsTotal.Inc()
-
+		alertsErrorsTotal.WithLabelValues(req.Status, req.Receiver).Inc()
 		http.Error(w, "missing fields in request body", http.StatusBadRequest)
 		return
 	}
@@ -89,16 +90,12 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		value = "1"
 	}
 
-	if req.Status == "resolved" {
-		alertsSentStats.WithLabelValues("resolved").Inc()
-	} else {
-		alertsSentStats.WithLabelValues("unresolved").Inc()
-	}
-
 	host, ok := h.Hosts[req.Receiver]
 	if !ok {
 		host = h.DefaultHost
 	}
+
+	alertsSentStats.WithLabelValues(req.Status, host).Inc()
 
 	var metrics []*zabbixsnd.Metric
 	for _, alert := range req.Alerts {
@@ -114,12 +111,13 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.zabbixSend(metrics)
 	if err != nil {
-		alertsErrorsTotal.Inc()
+		alertsErrorsTotal.WithLabelValues(req.Status, host).Inc()
 		log.Errorf("failed to send to server: %s", err)
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
-	} else {
-		log.Debugf("request succesfully sent: %s", res)
+		return
 	}
+
+	log.Debugf("request succesfully sent: %s", res)
 }
 
 func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, error) {

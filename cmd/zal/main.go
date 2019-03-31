@@ -11,6 +11,7 @@ import (
 	"github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/provisioner"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsnd"
 	"github.com/devopyio/zabbix-alertmanager/zabbixsender/zabbixsvc"
+	"github.com/povilasv/prommod"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	ver "github.com/prometheus/common/version"
@@ -19,19 +20,19 @@ import (
 )
 
 func main() {
-	app := kingpin.New("zal", "A zabbix and prometheus integration.")
+	app := kingpin.New("zal", "Zabbix and Prometheus integration.")
 
 	app.Version(ver.Print("zal"))
 	app.HelpFlag.Short('h')
 
-	send := app.Command("send", "Start zabbix sender.")
+	send := app.Command("send", "Listens for Alert requests from Alertmanager and sends them to Zabbix.")
 	senderAddr := send.Flag("addr", "Server address which will receive alerts from alertmanager.").Default("0.0.0.0:9095").String()
 	zabbixAddr := send.Flag("zabbix-addr", "Zabbix address.").Envar("ZABBIX_URL").Required().String()
 	hostsFile := send.Flag("hosts-path", "Path to resolver to host mapping file.").String()
 	keyPrefix := send.Flag("key-prefix", "Prefix to add to the trapper item key").Default("prometheus").String()
 	defaultHost := send.Flag("default-host", "default host to send alerts to").Default("prometheus").String()
 
-	prov := app.Command("prov", "Start zabbix provisioner.")
+	prov := app.Command("prov", "Reads Prometheus Alerting rules and converts them into Zabbix Triggers.")
 	provConfig := prov.Flag("config-path", "Path to provisioner hosts config file.").Required().String()
 	provUser := prov.Flag("user", "Zabbix json rpc user.").Envar("ZABBIX_USER").Required().String()
 	provPassword := prov.Flag("password", "Zabbix json rpc password.").Envar("ZABBIX_PASSWORD").Required().String()
@@ -66,7 +67,7 @@ func main() {
 	log.SetOutput(os.Stdout)
 
 	prometheus.MustRegister(ver.NewCollector(send.FullCommand()))
-
+	prometheus.MustRegister(prommod.NewCollector(send.FullCommand()))
 	switch cmd {
 	case send.FullCommand():
 		s, err := zabbixsnd.New(*zabbixAddr)

@@ -25,6 +25,8 @@ Checkout [kubernetes-manifests.yaml](https://github.com/devopyio/zabbix-alertman
 
 [grafana.json](https://github.com/devopyio/zabbix-alertmanager/blob/master/grafana.json) for Grafana dashboard.
 
+[alerts.yaml](https://github.com/devopyio/zabbix-alertmanager/blob/master/alerts.yaml) for Prometheus alerts.
+
 ## General Info
 
 Project consists of 2 components:

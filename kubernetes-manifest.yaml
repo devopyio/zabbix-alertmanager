@@ -15,18 +15,15 @@ spec:
   selector:
     k8s-app: zal
 ---
-apiVersion: v1
-kind: ConfigMap
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
 metadata:
   name: zal
-  namespace: sys-mon
-data:
-  sender-config.yml: |-
-    # Resolver name to zabbix host mapping
-    # web is Alertmanager's resolver name
-    # and the mapping is Zabbix host name.
-    infra: infra
-    web: webteam
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      k8s-app: zal
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -75,4 +72,18 @@ spec:
         - name: config-volume
           configMap:
             name: zal
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zal
+  namespace: sys-mon
+data:
+  sender-config.yml: |-
+    # Resolver name to zabbix host mapping
+    # web is Alertmanager's resolver name
+    # and the mapping is Zabbix host name.
+    infra: infra
+    web: webteam
+---
 

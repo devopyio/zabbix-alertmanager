@@ -51,16 +51,16 @@ type JSONHandler struct {
 }
 
 var (
-	alertsSentStats = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
+	alertsSentStats = promauto.NewCounterVec(
+		prometheus.CounterOpts{
 			Name: "alerts_sent_total",
 			Help: "Current number of sent alerts by status",
 		},
 		[]string{"alert_status", "host"},
 	)
 
-	alertsErrorsTotal = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
+	alertsErrorsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
 			Name: "alerts_errors_total",
 			Help: "Current number of different errors",
 		},

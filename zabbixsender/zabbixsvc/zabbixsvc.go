@@ -16,7 +16,8 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-type ZabbixSenderRequest struct {
+// AlertmanageRequest this is request received from Alertmanager.
+type AlertmanagerRequest struct {
 	Version           string            `json:"version"`
 	GroupKey          string            `json:"groupKey"`
 	Status            string            `json:"status"`
@@ -28,6 +29,7 @@ type ZabbixSenderRequest struct {
 	Alerts            []Alert           `json:"alerts"`
 }
 
+// Alert is alert received from alertmanager.
 type Alert struct {
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
@@ -40,7 +42,7 @@ type ZabbixResponse struct {
 	Info     string `json:"info"`
 }
 
-//JSONHandler handles alerts
+// JSONHandler handles alerts
 type JSONHandler struct {
 	Sender      *zabbixsnd.Sender
 	KeyPrefix   string
@@ -70,7 +72,7 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 
-	var req ZabbixSenderRequest
+	var req AlertmanagerRequest
 	if err := dec.Decode(&req); err != nil {
 		alertsErrorsTotal.WithLabelValues("", "").Inc()
 
@@ -111,8 +113,8 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.zabbixSend(metrics)
 	if err != nil {
-		alertsErrorsTotal.WithLabelValues(req.Status, host).Inc()
-		log.Errorf("failed to send to server: %s", err)
+		alertsErrorsTotal.WithLabelValues(req.Status, host).Add(float64(len(req.Alerts)))
+		log.Errorf("failed to send to server: %s, request: %v", err, req)
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
 		return
 	}
@@ -137,7 +139,7 @@ func (h *JSONHandler) zabbixSend(metrics []*zabbixsnd.Metric) (*ZabbixResponse, 
 
 	failed := strings.Trim(infoSplit[3], ";")
 	if failed != "0" || zres.Response != "success" {
-		return nil, errors.Errorf("failed to fulfill the requests: %v", failed)
+		return nil, errors.Errorf("failed to fulfill the requests: %v, info: %v, Data: %v", failed, zres.Info, zres.Response)
 	}
 
 	return &zres, nil

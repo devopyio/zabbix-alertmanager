@@ -95,6 +95,7 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	host, ok := h.Hosts[req.Receiver]
 	if !ok {
 		host = h.DefaultHost
+		log.Warnf("using default host %s, receiver not found: %s", host, req.Receiver)
 	}
 
 	alertsSentStats.WithLabelValues(req.Status, host).Inc()
@@ -114,7 +115,7 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	res, err := h.zabbixSend(metrics)
 	if err != nil {
 		alertsErrorsTotal.WithLabelValues(req.Status, host).Add(float64(len(req.Alerts)))
-		log.Errorf("failed to send to server: %s, request: %v", err, req)
+		log.Errorf("failed to send to server, metrics: %v, error: %s, raw request: %v", metrics, err, req)
 		http.Error(w, "failed to send to server", http.StatusInternalServerError)
 		return
 	}

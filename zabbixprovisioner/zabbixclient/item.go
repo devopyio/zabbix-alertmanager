@@ -51,7 +51,7 @@ const (
 // https://www.zabbix.com/documentation/2.2/manual/appendix/api/item/definitions
 type Item struct {
 	ItemId       string    `json:"itemid,omitempty"`
-	Delay        string    `json:"delay"`
+	Delay        int       `json:"delay"`
 	HostId       string    `json:"hostid"`
 	InterfaceId  string    `json:"interfaceid,omitempty"`
 	Key          string    `json:"key_"`

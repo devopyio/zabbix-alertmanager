@@ -81,7 +81,7 @@ func (h *JSONHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Status == "" || req.CommonLabels["alertname"] == "" {
+	if req.Status == ""  {
 		alertsErrorsTotal.WithLabelValues(req.Status, req.Receiver).Inc()
 		http.Error(w, "missing fields in request body", http.StatusBadRequest)
 		return

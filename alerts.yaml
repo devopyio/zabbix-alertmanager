@@ -1,19 +1,21 @@
 groups:
-- name: zal
-  rules:
-  - alert: DeadMansSwitch
-    annotations:
-      description: This is a DeadMansSwitch meant to ensure that the entire alerting
-        pipeline is functional.
-      summary: Alerting DeadMansSwitch
-      zabbix_trigger_nodata: "600"
-    expr: vector(1)
-    labels:
-      severity: critical
-  - alert: ZabbixAlertmanagerErrors
-    expr: sum(rate(alerts_errors_total{name="zal"}[5m])) > 0
-    annotations:
-      description: ZAL sender is having issues sending alerts to Zabbix. Please investigate.
-      grafana_url: http://GRAFANA_URL/d/maYkrFemz/zabbix-alertmanager?orgId=1&from=now-30m&to=now
-    labels:
-      severity: critical
+  - name: zal
+    rules:
+      - alert: DeadMansSwitch
+        annotations:
+          description:
+            This is a DeadMansSwitch meant to ensure that the entire alerting
+            pipeline is functional.
+          summary: Alerting DeadMansSwitch
+          zabbix_trigger_nodata: "600"
+          zabbix_trigger_prefix: "ZABXXXX "
+        expr: vector(1)
+        labels:
+          severity: critical
+      - alert: ZabbixAlertmanagerErrors
+        expr: sum(rate(alerts_errors_total{name="zal"}[5m])) > 0
+        annotations:
+          description: ZAL sender is having issues sending alerts to Zabbix. Please investigate.
+          grafana_url: http://GRAFANA_URL/d/maYkrFemz/zabbix-alertmanager?orgId=1&from=now-30m&to=now
+        labels:
+          severity: critical

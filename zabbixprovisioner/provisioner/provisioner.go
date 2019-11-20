@@ -205,6 +205,11 @@ func (p *Provisioner) LoadRulesFromPrometheus(hostConfig HostConfig) error {
 			newTrigger.Trigger.Expression = fmt.Sprintf("{%s:%s.nodata(%s)}", newHost.Name, key, delay)
 		}
 
+		// Add the special "Prefix" to trigger if requested
+		if prefix, ok := rule.Annotations["zabbix_trigger_prefix"]; ok {
+			newTrigger.Trigger.Description = fmt.Sprintf("%s%s", prefix, newTrigger.Trigger.Description)
+		}
+
 		// If no applications are found in the rule, add the default application declared in the configuration
 		if len(newItem.Applications) == 0 {
 			newHost.AddApplication(&CustomApplication{

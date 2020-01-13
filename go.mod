@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.0
 	github.com/povilasv/prommod v0.0.11
 	github.com/prometheus/client_golang v0.9.3
 	github.com/prometheus/common v0.4.1

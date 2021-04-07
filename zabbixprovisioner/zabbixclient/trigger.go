@@ -31,7 +31,7 @@ type Trigger struct {
 	Comments    string       `json:"comments"`
 	URL         string       `json:"url"`
 	ManualClose int32        `json:"manual_close"`
-	Value       ValueType    `json:""`
+	Value       ValueType    `json:",omitempty"`
 	Priority    PriorityType `json:"priority"`
 	Status      StatusType   `json:"status"`
 	Tags        []Tag        `json:"tags"`

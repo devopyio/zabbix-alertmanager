@@ -9,7 +9,7 @@ linter := ./bin/golangci-lint
 testflags := -v -cover
 
 GO111MODULE := on
-all: $(linter) deps test build docker-push
+all: $(linter) deps test build
 
 $(linter):
 	curl -sfl https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s v1.15.0

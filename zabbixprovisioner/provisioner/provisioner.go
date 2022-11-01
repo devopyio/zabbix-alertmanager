@@ -169,7 +169,7 @@ func (p *Provisioner) LoadRulesFromPrometheus(hostConfig HostConfig) error {
 			State: StateNew,
 			Trigger: zabbix.Trigger{
 				Description: rule.Name,
-				Expression:  fmt.Sprintf("{%s:%s.last()}<>0", newHost.Name, key),
+				Expression:  fmt.Sprintf("last(/%s/%s)<>0", newHost.Name, key),
 				ManualClose: 1,
 				Tags:        triggerTags,
 			},
@@ -199,7 +199,7 @@ func (p *Provisioner) LoadRulesFromPrometheus(hostConfig HostConfig) error {
 		// Add the special "No Data" trigger if requested
 		if delay, ok := rule.Annotations["zabbix_trigger_nodata"]; ok {
 			newTrigger.Trigger.Description = fmt.Sprintf("%s - no data for the last %s seconds", newTrigger.Trigger.Description, delay)
-			newTrigger.Trigger.Expression = fmt.Sprintf("{%s:%s.nodata(%s)}", newHost.Name, key, delay)
+			newTrigger.Trigger.Expression = fmt.Sprintf("nodata(%s/%s,%s)}", newHost.Name, key, delay)
 		}
 
 		log.Debugf("Loading item from Prometheus: %+v", newItem)

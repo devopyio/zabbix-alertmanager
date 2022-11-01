@@ -3,7 +3,7 @@ package zabbix
 import (
 	"fmt"
 
-	reflector "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/zabbixutil"
+	reflector "github.com/Dexanir/zabbix-alertmanager/zabbixprovisioner/zabbixutil"
 )
 
 type (

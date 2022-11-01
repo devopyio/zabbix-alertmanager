@@ -3,7 +3,7 @@ package provisioner
 import (
 	"strings"
 
-	zabbix "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/zabbixclient"
+	zabbix "github.com/Dexanir/zabbix-alertmanager/zabbixprovisioner/zabbixclient"
 	log "github.com/sirupsen/logrus"
 )
 

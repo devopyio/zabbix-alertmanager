@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	zabbix "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/zabbixclient"
+	zabbix "github.com/Dexanir/zabbix-alertmanager/zabbixprovisioner/zabbixclient"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"

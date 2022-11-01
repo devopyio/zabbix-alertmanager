@@ -23,11 +23,6 @@ var StateName = map[State]string{
 	StateOld:     "Old",
 }
 
-type CustomApplication struct {
-	State State
-	zabbix.Application
-}
-
 type CustomTrigger struct {
 	State State
 	zabbix.Trigger
@@ -41,16 +36,14 @@ type CustomHostGroup struct {
 type CustomItem struct {
 	State State
 	zabbix.Item
-	Applications map[string]struct{}
 }
 
 type CustomHost struct {
 	State State
 	zabbix.Host
-	HostGroups   map[string]struct{}
-	Applications map[string]*CustomApplication
-	Items        map[string]*CustomItem
-	Triggers     map[string]*CustomTrigger
+	HostGroups map[string]struct{}
+	Items      map[string]*CustomItem
+	Triggers   map[string]*CustomTrigger
 }
 
 type CustomZabbix struct {
@@ -127,15 +120,6 @@ func (host *CustomHost) AddTrigger(trigger *CustomTrigger) {
 	host.Triggers[trigger.Expression] = updatedTrigger
 }
 
-func (host *CustomHost) AddApplication(application *CustomApplication) {
-	if _, ok := host.Applications[application.Name]; ok {
-		if application.State == StateOld {
-			application.State = StateEqual
-		}
-	}
-	host.Applications[application.Name] = application
-}
-
 func (z *CustomZabbix) AddHostGroup(hostGroup *CustomHostGroup) {
 	if _, ok := z.HostGroups[hostGroup.Name]; ok {
 		if hostGroup.State == StateOld {
@@ -194,16 +178,6 @@ func (i *CustomItem) Equal(j *CustomItem) bool {
 
 	if i.TrapperHosts != j.TrapperHosts {
 		return false
-	}
-
-	if len(i.Applications) != len(j.Applications) {
-		return false
-	}
-
-	for appName, _ := range i.Applications {
-		if _, ok := j.Applications[appName]; !ok {
-			return false
-		}
 	}
 
 	return true
@@ -305,13 +279,6 @@ func (zabbix *CustomZabbix) PropagateCreatedHostGroups(hostGroups zabbix.HostGro
 	}
 }
 
-func (host *CustomHost) PropagateCreatedApplications(applications zabbix.Applications) {
-
-	for _, application := range applications {
-		host.Applications[application.Name].ApplicationId = application.ApplicationId
-	}
-}
-
 func (host *CustomHost) GetItemsByState() (itemsByState map[State]zabbix.Items) {
 
 	itemsByState = map[State]zabbix.Items{
@@ -324,16 +291,12 @@ func (host *CustomHost) GetItemsByState() (itemsByState map[State]zabbix.Items) 
 	newItemAmmount := 0
 	for _, item := range host.Items {
 		item.HostId = host.HostId
-		item.Item.ApplicationIds = []string{}
-		for appName, _ := range item.Applications {
-			item.Item.ApplicationIds = append(item.Item.ApplicationIds, host.Applications[appName].ApplicationId)
-		}
 		itemsByState[item.State] = append(itemsByState[item.State], item.Item)
 		if StateName[item.State] == "New" || StateName[item.State] == "Updated" {
 			newItemAmmount++
-			log.Infof("GetItemsByState = State: %s, Key: %s, Applications: %+v", StateName[item.State], item.Key, item.Applications)
+			log.Infof("GetItemsByState = State: %s, Key: %s", StateName[item.State], item.Key)
 		} else {
-			log.Debugf("GetItemsByState = State: %s, Key: %s, Applications: %+v", StateName[item.State], item.Key, item.Applications)
+			log.Debugf("GetItemsByState = State: %s, Key: %s", StateName[item.State], item.Key)
 		}
 	}
 
@@ -363,30 +326,6 @@ func (host *CustomHost) GetTriggersByState() (triggersByState map[State]zabbix.T
 
 	log.Infof("TRIGGERS, total: %v, new or updated: %v", len(host.Triggers), newTriggerAmmount)
 	return triggersByState
-}
-
-func (host *CustomHost) GetApplicationsByState() (applicationsByState map[State]zabbix.Applications) {
-
-	applicationsByState = map[State]zabbix.Applications{
-		StateNew:     zabbix.Applications{},
-		StateOld:     zabbix.Applications{},
-		StateUpdated: zabbix.Applications{},
-		StateEqual:   zabbix.Applications{},
-	}
-	newAppAmmount := 0
-	for _, application := range host.Applications {
-		application.Application.HostId = host.HostId
-		applicationsByState[application.State] = append(applicationsByState[application.State], application.Application)
-		if StateName[application.State] == "New" || StateName[application.State] == "Updated" {
-			newAppAmmount++
-			log.Infof("GetApplicationsByState = State: %s, Name: %s", StateName[application.State], application.Name)
-		} else {
-			log.Debugf("GetApplicationsByState = State: %s, Name: %s", StateName[application.State], application.Name)
-		}
-	}
-
-	log.Infof("APPLICATIONS, total: %v, new or updated: %v", len(host.Applications), newAppAmmount)
-	return applicationsByState
 }
 
 func GetZabbixPriority(severity string) zabbix.PriorityType {

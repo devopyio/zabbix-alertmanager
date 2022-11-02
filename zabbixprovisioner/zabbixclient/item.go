@@ -3,7 +3,7 @@ package zabbix
 import (
 	"fmt"
 
-	reflector "github.com/devopyio/zabbix-alertmanager/zabbixprovisioner/zabbixutil"
+	reflector "github.com/Dexanir/zabbix-alertmanager/zabbixprovisioner/zabbixutil"
 )
 
 type (
@@ -65,8 +65,6 @@ type Item struct {
 	History      string    `json:"history,omitempty"`
 	Trends       string    `json:"trends,omitempty"`
 	TrapperHosts string    `json:"trapper_hosts,omitempty"`
-
-	ApplicationIds []string `json:"applications,omitempty"`
 }
 
 type Items []Item
@@ -97,11 +95,6 @@ func (api *API) ItemsGet(params Params) (Items, error) {
 
 	reflector.MapsToStructs2(response.Result.([]interface{}), &res, reflector.Strconv, "json")
 	return res, nil
-}
-
-// Gets items by application Id.
-func (api *API) ItemsGetByApplicationId(id string) (res Items, err error) {
-	return api.ItemsGet(Params{"applicationids": id})
 }
 
 // Wrapper for item.create: https://www.zabbix.com/documentation/2.2/manual/appendix/api/item/create

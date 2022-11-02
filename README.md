@@ -1,35 +1,18 @@
-![zabbix-alertmanager](http://devopy.io/wp-content/uploads/2019/02/zal-200.png)
-
-# zabbix-alertmanager
-
-![Build Status](https://travis-ci.com/devopyio/zabbix-alertmanager.svg?branch=master)
-![Go Report Card](https://goreportcard.com/badge/github.com/devopyio/zabbix-alertmanager)
-[![Docker Repository on Quay](https://quay.io/repository/devopyio/zabbix-alertmanager/status "Docker Repository on Quay")](https://quay.io/repository/devopyio/zabbix-alertmanager)
-
-Fully automated [Zabbix](https://www.zabbix.com/) and [Prometheus Alertmanager](https://prometheus.io/docs/alerting/alertmanager/) integration. 
-
-## Tutorials
-
-[Introducing ZAL - Zabbix Alertmanager Integration](https://devopy.io/zabbix-alertmanager-integration/)
+## Basic configuration
+Original article:
 
 [Setting Up Zabbix Alertmanager integration](http://devopy.io/setting-up-zabbix-alertmanager-integration/)
-
-[Running Zabbix Alertmanager integration](http://devopy.io/)
-
+Configuration for hosts are incorrect in the article. Working one is located [here](./zabbixprovisioner/config.yaml)
 
 ## Deployment
 
-Checkout [kubernetes-manifests.yaml](https://github.com/devopyio/zabbix-alertmanager/blob/master/kubernetes-manifest.yaml) for deployment in Kubernetes. 
+[grafana.json](./grafana.json) for Grafana dashboard.
 
-[Releases](https://github.com/devopyio/zabbix-alertmanager/releases) page for binaries.
-
-[grafana.json](https://github.com/devopyio/zabbix-alertmanager/blob/master/grafana.json) for Grafana dashboard.
-
-[alerts.yaml](https://github.com/devopyio/zabbix-alertmanager/blob/master/alerts.yaml) for Prometheus alerts.
+[alerts.yaml](./alerts.yaml) for Prometheus alerts.
 
 ## General Info
 
-Project consists of 2 components:
+Project consists of 2 components [send](#1-zal-send) and [prov](#2-zal-prov):
 
 ## 1. zal send
 
@@ -107,3 +90,8 @@ Flags:
       --key-prefix="prometheus"  Prefix to add to the trapper item key.
       --prometheus-url=""        Prometheus URL.
 ```
+
+Example of the alert's configuration is [here](./alerts.yaml)
+
+
+Original repository: https://github.com/devopyio/zabbix-alertmanager
